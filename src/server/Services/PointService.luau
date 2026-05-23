@@ -7,10 +7,12 @@ local PointService = Knit.CreateService({
 	Client = {},
 })
 
-function PointService:EventTest()
+function PointService:KnitStart()
 	local MoneyService = Knit.GetService("MoneyService")
 
 	MoneyService.MoneyChanged:Connect(function(player, points)
-		print("Points changed for " .. player.Name .. ":", points)
+		print("Money changed for " .. player.Name .. ":", points)
 	end)
 end
+
+return PointService

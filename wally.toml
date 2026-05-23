@@ -6,3 +6,4 @@ realm = "shared"
 
 [dependencies]
 Knit = "sleitnick/knit@^1.7"
+Signal = "sleitnick/signal@^1.5"
