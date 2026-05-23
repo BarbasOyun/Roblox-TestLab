@@ -33,8 +33,8 @@ function MoneyService:KnitInit()
 	-- Listen for the client to fire this signal, then give random points:
 	self.Client.GiveMeMoney:Connect(function(player)
 		local money = rng:NextInteger(0, 10)
-		self:GiveMoney(player, money)
-		print("Gave " .. player.Name .. " " .. money .. " money")
+		self:UpdateMoney(player, money)
+		-- print("Gave " .. player.Name .. " " .. money .. " money")
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -42,7 +42,7 @@ function MoneyService:KnitInit()
 		self.MoneyPerPlayer[player] = nil
 	end)
 
-	print("MoneyService Initialized")
+	-- print("MoneyService Initialized")
 end
 
 function MoneyService:GetMoney(player)
@@ -54,9 +54,9 @@ function MoneyService:GetMoney(player)
 	return if money ~= nil then money else 0 -- Return 0 if no money found for player
 end
 
-function MoneyService:GiveMoney(player, amount)
+function MoneyService:UpdateMoney(player, value)
 	local money = self:GetMoney(player)
-	money += amount -- Add Money
+	money += value -- Add Money
 
 	-- Using DataStore
 	-- someDataStore:SetAsync("money", money)
@@ -65,7 +65,11 @@ function MoneyService:GiveMoney(player, amount)
 	self.MoneyPerPlayer[player] = money -- Store Money
 	self.Client.Money:SetFor(player, money)
 
-	if amount ~= 0 then
+	if value > 0 then
+		self.Client.PlayEffect:Fire(player)
+	end
+
+	if value ~= 0 then
 		self.MoneyChanged:Fire(player, money) -- Fire Event
 		self.Client.MoneyChanged:Fire(player, money) -- Fire Client Event
 	end

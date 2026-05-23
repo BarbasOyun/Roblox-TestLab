@@ -14,8 +14,8 @@ end)
 
 -- SERVER EVENTS > Interact
 
-MoneyService.MoneyChanged:Connect(function(points)
-	print("Money for myself now:", points)
+MoneyService.MoneyChanged:Connect(function(money)
+	print("Current Money", money)
 end)
 
 MoneyService.PlayEffect:Connect(function()
@@ -27,11 +27,11 @@ MoneyService.GiveMeMoney:Fire()
 -- SERVER PROPERTIES > Interact
 
 -- The 'Observe' method will fire for the current value and any time the value changes:
-MoneyService.Money:Observe(function(points)
-	print("Current number of points:", points)
+MoneyService.Money:Observe(function(money)
+	-- print("Current number of Money:", money)
 end)
 
 -- Use Service
 MoneyService:GetMoney():andThen(function(money)
-	print(money)
+	-- print(money)
 end)
