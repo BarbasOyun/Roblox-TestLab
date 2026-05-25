@@ -55,11 +55,13 @@ local store = Rodux.Store.new(reducer, nil, {
 	-- Rodux.loggerMiddleware,
 })
 
+--[[
 store:dispatch(ReceivedNewPhoneNumber("12345678"))
 store:dispatch(MadeNewFriends({
 	"Cassandra",
 	"Joe",
 }))
+]]
 
 --[[
     Expected output to the developer console:

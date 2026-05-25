@@ -2,12 +2,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(Knit.Util.Signal)
 
-local PointService = Knit.CreateService({
-	Name = "PointService",
+local ScoreService = Knit.CreateService({
+	Name = "ScoreService",
 	Client = {},
 })
 
-function PointService:KnitStart()
+function ScoreService:KnitStart()
 	local MoneyService = Knit.GetService("MoneyService")
 
 	MoneyService.MoneyChanged:Connect(function(player, points)
@@ -15,4 +15,4 @@ function PointService:KnitStart()
 	end)
 end
 
-return PointService
+return ScoreService

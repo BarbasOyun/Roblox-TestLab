@@ -112,6 +112,7 @@ local ClockContainer = RoactRodux.connect(function(state, props)
 	}
 end)(Clock)
 
+--[[
 -- Rodux store available for any components
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = store,
@@ -138,3 +139,4 @@ while true do
 	-- print(store.getState(store))
 	store:dispatch(TimeAction())
 end
+]]

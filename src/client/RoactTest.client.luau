@@ -96,10 +96,10 @@ local hello = Roact.createElement("ScreenGui", {}, {
 
 -- CREATE INSTANCES
 
-Roact.mount(app, PlayerGui)
-local mainGui = PlayerGui:WaitForChild("RoactTree")
+-- Roact.mount(app, PlayerGui)
+-- local mainGui = PlayerGui:WaitForChild("RoactTree")
 
-local myHandle = Roact.mount(myElement, mainGui)
+-- local myHandle = Roact.mount(myElement, mainGui)
 
 -- Roact.mount(Container(Button()), mainGui)
 
@@ -112,7 +112,7 @@ local myHandle = Roact.mount(myElement, mainGui)
 -- INSTANCES LIFE TIME
 
 -- Roact.unmount(myHandle)
-myHandle = Roact.update(myHandle, myNewElement)
+-- myHandle = Roact.update(myHandle, myNewElement)
 
 -- task.wait(10)
 -- Roact.unmount(handle)
