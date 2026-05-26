@@ -1,86 +1,26 @@
--- Create Client side Rodux store :
--- 1) Score
--- 2) Inventory
--- Dumb Inventory > Only hold items data copy & UI Positions
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer.PlayerGui
 
-local Rodux = require(ReplicatedStorage.Shared.Rodux)
 local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
 
--- RODDUX ACTIONS
+local Knit = require(ReplicatedStorage.Packages.Knit)
+Knit.OnStart():await() -- Wait for KnitControllersStart
 
-local function IncrementScore()
-	return {
-		type = "IncrementScore",
-	}
-end
-
-local function AddItem(item, position)
-	return {
-		type = "AddItem",
-		item = item,
-		position = position,
-	}
-end
-
-local function RemoveItem(item)
-	return {
-		type = "RemoveItem",
-		item = item,
-	}
-end
-
--- RODUX REDUCERS
-
-local incrementScoreReducer = Rodux.createReducer(0, {
-	IncrementScore = function(state, action)
-		local newState = state or 0
-
-		newState += 1
-
-		return newState
-	end,
-})
-
-local inventoryReducer = Rodux.createReducer({}, {
-	AddItemAction = function(state, action)
-		local newState = state or {}
-
-		newState[action.position] = action.item
-
-		return newState
-	end,
-
-	RemoveItemAction = function(state, action)
-		local newState = state or {}
-
-		table.remove(newState, table.find(newState, action.item))
-
-		return newState
-	end,
-})
-
-local reducer = Rodux.combineReducers({
-	score = incrementScoreReducer,
-	inventory = inventoryReducer,
-})
-
-local store = Rodux.Store.new(reducer)
+local PlayerController = Knit.GetController("PlayerController")
 
 -- ROACT COMPONENTS
 
 -- Score
+-- TODO : Players Score list
 local function ScoreComponent(props)
 	local score = props.score
 
 	return Roact.createElement("TextLabel", {
 		Text = "Score: " .. score,
 		Size = UDim2.new(0.1, 0, 0.1, 0),
-		Position = UDim2.new(0.45, 0, 0, 0), -- 0.5 - size.x / 2
+		Position = UDim2.new(0.45, 0, 0, 0), -- X_pos = 0.5 (half screen) - size.x / 2
 		BackgroundTransparency = 1,
 		TextScaled = true,
 		TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -89,13 +29,23 @@ end
 
 ScoreComponent = RoactRodux.connect(function(state, props)
 	-- mapStateToProps
+	-- print("Local player UserID : ", Players.LocalPlayer.UserId)
+	local score = 0
+	local username = ""
+
+	if state.players[Players.LocalPlayer.UserId] then
+		score = state.players[Players.LocalPlayer.UserId].score
+		username = state.players[Players.LocalPlayer.UserId].username
+	end
+
 	return {
-		score = state.score,
+		score = score,
+		username = username,
 	}
 end)(ScoreComponent)
 
 local app = Roact.createElement(RoactRodux.StoreProvider, {
-	store = store,
+	store = PlayerController.store,
 }, {
 	-- MainGUI
 	Roact.createElement("ScreenGui", {}, {

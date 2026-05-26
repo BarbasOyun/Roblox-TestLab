@@ -1,5 +1,7 @@
 -- Roact Getting Started = https://roblox.github.io/roact/guide/installation/
 
+-- This script is disabled in Roblox
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer.PlayerGui
@@ -96,10 +98,10 @@ local hello = Roact.createElement("ScreenGui", {}, {
 
 -- CREATE INSTANCES
 
--- Roact.mount(app, PlayerGui)
--- local mainGui = PlayerGui:WaitForChild("RoactTree")
+Roact.mount(app, PlayerGui)
+local mainGui = PlayerGui:WaitForChild("RoactTree")
 
--- local myHandle = Roact.mount(myElement, mainGui)
+local myHandle = Roact.mount(myElement, mainGui)
 
 -- Roact.mount(Container(Button()), mainGui)
 
@@ -107,12 +109,12 @@ local hello = Roact.createElement("ScreenGui", {}, {
 -- Roact.mount(hello, mainGui)
 -- Roact.mount(GreetEveryone(), mainGui)
 
--- local handle = Roact.mount(Roact.createElement(Clock), mainGui, "Clock UI")
+local handle = Roact.mount(Roact.createElement(Clock), mainGui, "Clock UI")
 
 -- INSTANCES LIFE TIME
 
 -- Roact.unmount(myHandle)
--- myHandle = Roact.update(myHandle, myNewElement)
+myHandle = Roact.update(myHandle, myNewElement)
 
--- task.wait(10)
--- Roact.unmount(handle)
+task.wait(10)
+Roact.unmount(handle)

@@ -14,7 +14,7 @@ CameraController.RenderName = "CustomCamRender"
 CameraController.Priority = Enum.RenderPriority.Camera.Value
 
 function CameraController:KnitStart()
-	-- print("CameraController KnitStart called")
+	print("CameraController KnitStart called")
 	-- Access Service
 	--     local SomeService = Knit.GetService("SomeService")
 	--     SomeService:DoSomething()
@@ -23,7 +23,7 @@ function CameraController:KnitStart()
 end
 
 function CameraController:KnitInit()
-	-- print("CameraController KnitInit called")
+	print("CameraController KnitInit called")
 end
 
 function CameraController:LockTo(part)

@@ -1,6 +1,8 @@
 -- Rodux Example : https://roblox.github.io/rodux/example/
 -- Can also be used Server Side
 
+-- This script is disabled in Roblox
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
@@ -52,16 +54,14 @@ local reducer = Rodux.combineReducers({
 })
 
 local store = Rodux.Store.new(reducer, nil, {
-	-- Rodux.loggerMiddleware,
+	Rodux.loggerMiddleware,
 })
 
---[[
 store:dispatch(ReceivedNewPhoneNumber("12345678"))
 store:dispatch(MadeNewFriends({
 	"Cassandra",
 	"Joe",
 }))
-]]
 
 --[[
     Expected output to the developer console:

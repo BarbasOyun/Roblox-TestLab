@@ -7,8 +7,6 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages.Signal)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
--- print("Hello world, from server!")
-
 -- Create the service:
 local MoneyService = Knit.CreateService({
 	-- SERVER PROPERTIES
@@ -34,7 +32,7 @@ function MoneyService:KnitInit()
 	self.Client.GiveMeMoney:Connect(function(player)
 		local money = rng:NextInteger(0, 10)
 		self:UpdateMoney(player, money)
-		-- print("Gave " .. player.Name .. " " .. money .. " money")
+		print("Gave " .. player.Name .. " " .. money .. " money")
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -42,7 +40,16 @@ function MoneyService:KnitInit()
 		self.MoneyPerPlayer[player] = nil
 	end)
 
-	-- print("MoneyService Initialized")
+	print("MoneyService Initialized")
+end
+
+function MoneyService:KnitStart()
+	-- Use other services
+	local PlayerService = Knit.GetService("PlayerService")
+
+	PlayerService.ScoreChanged:Connect(function(player, score)
+		print("Score changed for " .. player.Name .. ":", score)
+	end)
 end
 
 function MoneyService:GetMoney(player)

@@ -1,5 +1,7 @@
 --RoactRodux Example : https://roblox.github.io/roact-rodux/guide/usage/
 
+-- This script is disabled in Roblox
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer.PlayerGui
@@ -10,6 +12,8 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 
 -- RODUX ACTION
 
+-- Break naming convention of camelCase naming for function
+-- so that function name = type eg IncrementAction = "IncrementAction"
 local function IncrementAction()
 	return {
 		type = "IncrementAction",
@@ -26,7 +30,7 @@ end
 
 local incrementReducer = Rodux.createReducer(0, {
 	IncrementAction = function(state, action)
-		local newState = state or 0
+		local newState = state or 0 -- Doesn't follow immutable principle = wrong
 
 		newState += 1
 
@@ -112,7 +116,6 @@ local ClockContainer = RoactRodux.connect(function(state, props)
 	}
 end)(Clock)
 
---[[
 -- Rodux store available for any components
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = store,
@@ -139,4 +142,3 @@ while true do
 	-- print(store.getState(store))
 	store:dispatch(TimeAction())
 end
-]]

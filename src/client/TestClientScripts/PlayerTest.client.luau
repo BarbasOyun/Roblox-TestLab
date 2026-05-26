@@ -1,3 +1,5 @@
+-- Disabled in Roblox
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
@@ -28,10 +30,10 @@ MoneyService.GiveMeMoney:Fire()
 
 -- The 'Observe' method will fire for the current value and any time the value changes:
 MoneyService.Money:Observe(function(money)
-	-- print("Current number of Money:", money)
+	print("Current number of Money:", money)
 end)
 
 -- Use Service
 MoneyService:GetMoney():andThen(function(money)
-	-- print(money)
+	print(money)
 end)
