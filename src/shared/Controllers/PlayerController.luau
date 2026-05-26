@@ -10,8 +10,8 @@ local PlayerController = Knit.CreateController({ Name = "PlayerController" })
 
 PlayerController.store = store
 
-function PlayerController:KnitStart()
-	print("PlayerController Start")
+function PlayerController:KnitInit()
+	print("PlayerController Init")
 
 	local PlayerService = Knit.GetService("PlayerService")
 
@@ -36,8 +36,8 @@ function PlayerController:KnitStart()
 	end)
 end
 
-function PlayerController:KnitInit()
-	print("PlayerController Init")
+function PlayerController:KnitStart()
+	print("PlayerController Start")
 end
 
 return PlayerController

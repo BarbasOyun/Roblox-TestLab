@@ -1,10 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local storeActions = RoduxStore.Actions
-
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
