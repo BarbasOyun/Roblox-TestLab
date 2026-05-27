@@ -34,6 +34,16 @@ function gears.getPartCount(parentObject)
 	return count
 end
 
+function gears.FindHumanoidFromPart(part)
+	local character = part.Parent
+
+	if character then
+		return character:FindFirstChild("Humanoid")
+	end
+
+	return nil
+end
+
 -- AUDIO
 
 function gears.safePlaySound(sound)

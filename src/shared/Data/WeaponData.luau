@@ -4,6 +4,7 @@ return {
 		BaseDamage = 25,
 		AttackSpeed = 0.75,
 		Range = 6,
+		maxCombo = 2,
 	},
 	--[[
 	["IronMace"] = {

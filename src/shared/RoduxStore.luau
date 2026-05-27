@@ -9,15 +9,16 @@ local PLAYER_STRUCT = {
 	inventory = {},
 	stats = {},
 	weaponData = nil,
+	lifeRegenUpdate = nil,
 }
 
 -- PlayerStats Data > Move to file
 local PLAYER_BASE_STATS = {
 	-- Level
 	level = 1,
+	currentXp = 0,
 	increasedXp = 0,
-	levelUpXp = nil,
-	currentXp = nil,
+	levelUpXp = 10,
 	-- Offensive
 	increasedAttackDamage = 0,
 	critChance = 5,
@@ -26,12 +27,11 @@ local PLAYER_BASE_STATS = {
 	animationTime = 1,
 	aoe = 0,
 	-- Defensive
-	maxHealth = 100,
+	maxLife = 100,
 	lifeRegen = 1,
-	lifeRegenUpdate = nil,
 	damageReduction = 0,
 	-- Utility
-	mobility = 15,
+	movementSpeed = 15,
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
@@ -57,6 +57,7 @@ local INVENTORY_COL_SIZE = 10
 -- RODUX ACTIONS
 
 local Actions = {
+	-- Players
 	AddPlayer = function(userId, username)
 		return {
 			type = "AddPlayer",
@@ -72,6 +73,7 @@ local Actions = {
 		}
 	end,
 
+	-- Score
 	IncrementScore = function(userId, value)
 		return {
 			type = "IncrementScore",
@@ -80,14 +82,15 @@ local Actions = {
 		}
 	end,
 
-	UpdateScore = function(userId, score)
+	SetScore = function(userId, score)
 		return {
-			type = "UpdateScore",
+			type = "SetScore",
 			userId = userId,
 			score = score,
 		}
 	end,
 
+	-- Inventory
 	AddItem = function(item, position)
 		return {
 			type = "AddItem",
@@ -103,53 +106,72 @@ local Actions = {
 		}
 	end,
 
-	-- Change Stats Actions
+	-- Stats
+
+	SetWeaponData = function(userId, weaponData)
+		return {
+			type = "SetWeaponData",
+			userId = userId,
+			weaponData = weaponData,
+		}
+	end,
 }
 
 -- RODUX REDUCERS
 
 local playerReducer = Rodux.createReducer({}, {
+	-- Players
 	AddPlayer = function(state, action)
-		local newState = table.clone(state) or {} -- Shallow copy the players table
-		newState[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
-		newState[action.userId].username = action.username
-		return newState
+		local players = table.clone(state) or {} -- Shallow copy the players table
+		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
+		players[action.userId].username = action.username
+		players[action.userId].stats = Gears.deepCopy(PLAYER_BASE_STATS)
+		return players
 	end,
 
 	RemovePlayer = function(state, action)
-		local newState = table.clone(state) or {}
-		newState[action.userId] = nil
-		return newState
+		local players = table.clone(state) or {}
+		players[action.userId] = nil
+		return players
 	end,
 
+	-- Score
 	IncrementScore = function(state, action)
-		local newState = table.clone(state) or {}
-		newState[action.userId].score += action.value
+		local players = table.clone(state) or {}
+		players[action.userId].score += action.value
 
-		return newState
+		return players
 	end,
 
-	UpdateScore = function(state, action)
-		local newState = table.clone(state) or {}
-		newState[action.userId].score = action.score
+	SetScore = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].score = action.score
 
-		return newState
+		return players
 	end,
 
+	-- Inventory
 	AddItem = function(state, action)
-		local newState = {}
+		local players = {}
 
 		-- TODO
 
-		return newState
+		return players
 	end,
 
 	RemoveItem = function(state, action)
-		local newState = {}
+		local players = {}
 
 		-- TODO
 
-		return newState
+		return players
+	end,
+
+	-- Stats
+	SetWeaponData = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].weaponData = action.weaponData
+		return players
 	end,
 })
 

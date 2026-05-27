@@ -13,6 +13,8 @@ local storeActions = RoduxStore.Actions
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
 	ScoreChanged = Signal.new(),
+	PlayerAdded = Signal.new(),
+	PlayerRemoved = Signal.new(),
 	Client = {
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
@@ -30,16 +32,24 @@ function PlayerService:KnitStart()
 	-- print("PlayerService Start")
 end
 
+-- Players
 function PlayerService:AddPlayer(userId, username)
 	store:dispatch(storeActions.AddPlayer(userId, username))
+
+	-- Events
+	self.PlayerAdded:Fire(userId)
 	self.Client.PlayerAdded:FireAll(userId, username)
 end
 
 function PlayerService:RemovePlayer(userId)
 	store:dispatch(storeActions.RemovePlayer(userId))
+
+	-- Events
+	self.PlayerRemoved:Fire(userId)
 	self.Client.PlayerRemoved:FireAll(userId)
 end
 
+-- Score
 function PlayerService:GetScore(userId)
 	local score = store:getState().players[userId].score
 	return if score ~= nil then score else 0
@@ -47,14 +57,19 @@ end
 
 function PlayerService:IncrementScore(userId, value)
 	store:dispatch(storeActions.IncrementScore(userId, value))
-	local newScore = self:GetScore(userId)
 
+	-- Replicate to Clients
+	local newScore = self:GetScore(userId)
 	self.Client.ScoreChanged:FireAll(userId, newScore)
 end
 
--- STATS > Move to CombatService?
+-- STATS > Move to Combat/Stats Service?
 
-local playerStatsCalculation = {} -- Fill with functions
+local playerStatsCalculation = { -- Fill with functions
+	-- calculateAttackDamage
+	-- calculateAttackSpeed
+	-- ...
+}
 
 function PlayerService.CalculateAllStats(userId)
 	for _, calculateStat in ipairs(playerStatsCalculation) do
@@ -65,7 +80,7 @@ end
 function PlayerService:ApplyStats(userId)
 	-- TODO
 	-- Make the current stats effective
-	-- Send to Client -> Display on stats screen
+	-- Send to Client -> Display on Client side character stats sheet
 end
 
 function PlayerService.AddXpToPlayer(player, xp)
