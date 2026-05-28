@@ -9,11 +9,10 @@ local PLAYER_STRUCT = {
 	inventory = {},
 	stats = {},
 	weaponData = nil,
-	lifeRegenUpdate = nil,
 }
 
--- PlayerStats Data > Move to file
-local PLAYER_BASE_STATS = {
+-- Define : PlayerStats struct & Authoring Data > Move to file
+local PLAYER_STATS_STRUCT = {
 	-- Level
 	level = 1,
 	currentXp = 0,
@@ -21,17 +20,24 @@ local PLAYER_BASE_STATS = {
 	levelUpXp = 10,
 	-- Offensive
 	increasedAttackDamage = 0,
+	attackDamage = 0,
 	critChance = 5,
 	critMultiplier = 50,
-	attackSpeed = 0,
-	animationTime = 1,
+	increasedAttackSpeed = 0,
+	attackSpeed = 0, -- Attacks / Second
+	animationTime = 1, -- Get lower as attackSpeed get higher
+	increasedAoe = 0,
 	aoe = 0,
 	-- Defensive
+	-- baseLife
+	-- increasedLife
 	maxLife = 100,
+	life = 100,
 	lifeRegen = 1,
 	damageReduction = 0,
 	-- Utility
 	movementSpeed = 15,
+	manualPickupRange = 5, -- manual = pickup item with mouse
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
@@ -74,14 +80,6 @@ local Actions = {
 	end,
 
 	-- Score
-	IncrementScore = function(userId, value)
-		return {
-			type = "IncrementScore",
-			userId = userId,
-			value = value,
-		}
-	end,
-
 	SetScore = function(userId, score)
 		return {
 			type = "SetScore",
@@ -115,6 +113,32 @@ local Actions = {
 			weaponData = weaponData,
 		}
 	end,
+
+	-- Include increased?
+	SetAttackDamage = function(userId, attackDamage)
+		return {
+			type = "SetAttackDamage",
+			userId = userId,
+			attackDamage = attackDamage,
+		}
+	end,
+
+	SetAttackSpeed = function(userId, attackSpeed, animationTime)
+		return {
+			type = "SetAttackSpeed",
+			userId = userId,
+			attackSpeed = attackSpeed,
+			animationTime = animationTime,
+		}
+	end,
+
+	SetAoe = function(userId, aoe)
+		return {
+			type = "SetAoe",
+			userId = userId,
+			aoe = aoe,
+		}
+	end,
 }
 
 -- RODUX REDUCERS
@@ -125,7 +149,7 @@ local playerReducer = Rodux.createReducer({}, {
 		local players = table.clone(state) or {} -- Shallow copy the players table
 		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
 		players[action.userId].username = action.username
-		players[action.userId].stats = Gears.deepCopy(PLAYER_BASE_STATS)
+		players[action.userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
 		return players
 	end,
 
@@ -136,13 +160,6 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	-- Score
-	IncrementScore = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].score += action.value
-
-		return players
-	end,
-
 	SetScore = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].score = action.score
@@ -171,6 +188,25 @@ local playerReducer = Rodux.createReducer({}, {
 	SetWeaponData = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].weaponData = action.weaponData
+		return players
+	end,
+
+	SetAttackDamage = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].stats.attackDamage = action.attackDamage
+		return players
+	end,
+
+	SetAttackSpeed = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].stats.attackSpeed = action.attackSpeed
+		players[action.userId].stats.animationTime = action.animationTime
+		return players
+	end,
+
+	SetAoe = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].stats.aoe = action.aoe
 		return players
 	end,
 })

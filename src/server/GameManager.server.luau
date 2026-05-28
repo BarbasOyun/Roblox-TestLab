@@ -11,7 +11,7 @@ Players.PlayerAdded:Connect(function(player)
 
 	PlayerService:AddPlayer(userId, player.Name)
 
-	PlayerService:IncrementScore(userId, 1)
+	-- PlayerService:IncrementScore(userId, 1) -- Test
 end)
 
 Players.PlayerRemoving:Connect(function(player)

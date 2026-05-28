@@ -6,7 +6,9 @@ local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0
 local enemyParent = workspace.WeaponHit
 
 local PlayerService = nil
+local CombatService = nil
 
+-- ENEMY AUTHORING DATA
 -- Move to file
 local enemyData = {
 	["Dummy"] = {
@@ -19,27 +21,32 @@ local enemyData = {
 -- Instead of using Rodux store
 -- TODO : Use smart ID instead of Humanoid as key
 
+local enemiesHp = {}
+local enemiesOnDeath = {}
+
 local EnemyService = Knit.CreateService({
 	Name = "EnemyService",
-	enemiesHp = {},
-	enemiesOnDeath = {},
 	-- Client = {},
 })
 
--- Take an instance and assosiate it stats
+-- Take an instance and associate it stats
 function EnemyService:CreateEnemy(humanoid, enemyType)
 	humanoid.Parent.Parent = enemyParent
 
-	self.enemiesHp[humanoid] = enemyType.Hp
-	self.enemiesOnDeath[humanoid] = Signal.new()
+	enemiesHp[humanoid] = enemyType.Hp
+	enemiesOnDeath[humanoid] = Signal.new()
 end
 
 function EnemyService:DamageEnemy(userId, humanoid, damage)
-	local hp = self.enemiesHp[humanoid]
-	hp -= damage
+	if not enemiesHp[humanoid] then
+		return
+	end
 
-	-- print(player.name .. " Dealt " .. damage .. " damage to " .. humanoid.Parent.Name)
-	print(" Dealt " .. damage .. " damage to " .. humanoid.Parent.Name)
+	enemiesHp[humanoid] -= damage
+
+	local hp = enemiesHp[humanoid]
+
+	-- print(" Dealt " .. damage .. " damage to " .. humanoid.Parent.Name .. " New HP : " .. hp)
 
 	if hp <= 0 then
 		local overKillDamage = math.abs(hp)
@@ -49,10 +56,21 @@ end
 
 function EnemyService:KillEnemy(userId, humanoid, overKillDamage)
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
-	self.enemiesOnDeath[humanoid]:Fire(userId)
+	enemiesOnDeath[humanoid]:Fire(userId)
 
-	self.enemiesHp[humanoid] = nil
-	self.enemiesOnDeath[humanoid] = nil
+	enemiesHp[humanoid] = nil
+	enemiesOnDeath[humanoid] = nil
+end
+
+-- TODO : Move
+local function dismember(character)
+	print("Dismember : " .. character.Name)
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("Motor6D") then
+			print("Delete Motor6D")
+			descendant:Destroy()
+		end
+	end
 end
 
 function EnemyService:setupDummy(dummy)
@@ -75,7 +93,10 @@ function EnemyService:setupDummy(dummy)
 
 	local function onDeath(userId)
 		-- print(dummy.Name .. " Died")
-		-- Gears.SpawnXP(dummy:GetPivot().Position)
+		CombatService:SpawnAutomaticItem(CombatService.automaticItems.smallXpOrb, dummy:GetPivot().Position)
+		-- CombatService.SpawnAutomaticItem(CombatService.automaticItems.smallXpOrb, dummy.PrimaryPart.Position)
+		-- dismember(dummy)
+		dummy.Torso.Snap:Destroy()
 		PlayerService:IncrementScore(userId, 1)
 		task.wait(1)
 		-- Respawn
@@ -83,25 +104,28 @@ function EnemyService:setupDummy(dummy)
 		dummy:Destroy()
 	end
 
-	self.enemiesOnDeath[humanoid]:Connect(onDeath)
+	enemiesOnDeath[humanoid]:Connect(onDeath)
 end
 
-function EnemyService:SetupAllDummies()
+local function SetupAllDummies()
 	-- Setup Existing Dummies
 	for _, dummy in pairs(CollectionService:GetTagged("Dummy")) do
-		self:setupDummy(dummy)
+		EnemyService:setupDummy(dummy)
 	end
 
 	-- Setup New Dummies
 	CollectionService:GetInstanceAddedSignal("Dummy"):Connect(function(dummy)
-		self:setupDummy(dummy)
+		EnemyService:setupDummy(dummy)
 	end)
 end
 
 function EnemyService:KnitInit()
 	PlayerService = Knit.GetService("PlayerService")
+	CombatService = Knit.GetService("CombatService")
+end
 
-	self:SetupAllDummies()
+function EnemyService:KnitStart()
+	SetupAllDummies()
 end
 
 return EnemyService

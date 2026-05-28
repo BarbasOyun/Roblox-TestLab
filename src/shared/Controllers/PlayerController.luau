@@ -64,11 +64,12 @@ end
 
 function PlayerController:KnitInit()
 	print("PlayerController Init")
+
+	loadAllAnimations()
+	player.CharacterAdded:Connect(onCharacterAdded)
 end
 
 function PlayerController:KnitStart()
-	print("PlayerController Start")
-
 	CombatService = Knit.GetService("CombatService")
 	local PlayerService = Knit.GetService("PlayerService")
 
@@ -88,14 +89,6 @@ function PlayerController:KnitStart()
 		store:dispatch(storeActions.SetScore(userId, newScore))
 	end)
 
-	-- 3) Clients : Animation
-	-- Server Validated the attack
-	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
-		-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
-		animationTracks[animationId]:Play()
-		animationTracks[animationId]:AdjustSpeed(animationSpeed)
-	end)
-
 	-- CONTROLS
 
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -105,7 +98,6 @@ function PlayerController:KnitStart()
 		end
 
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			-- CombatService.startAttack:Fire()
 			isLClickDown = true
 		end
 	end)
@@ -120,6 +112,7 @@ function PlayerController:KnitStart()
 		end
 	end)
 
+	-- 1) Client : Player Input -> Ask Server to Attack
 	RunService.Heartbeat:Connect(function()
 		if isLClickDown then
 			print("Ask Server to Attack")
@@ -127,7 +120,13 @@ function PlayerController:KnitStart()
 		end
 	end)
 
-	loadAllAnimations()
+	-- 3) Clients : Animation
+	-- Server Validated the attack
+	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
+		-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
+		animationTracks[animationId]:Play()
+		animationTracks[animationId]:AdjustSpeed(animationSpeed)
+	end)
 end
 
 return PlayerController

@@ -1,4 +1,5 @@
 -- UTILS / HELPER FUNCTIONS
+-- Controller?
 
 local RunService = game:GetService("RunService")
 
@@ -89,32 +90,6 @@ function gears.waitUntil(condition)
 	return true
 end
 
--- Tween Movements
-
-function gears.lootMovement(item, startPos)
-	item.Position = startPos
-	item.Parent = workspace
-
-	local targetPos = startPos + Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
-	local finalTargetPos = targetPos
-	local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
-
-	if result then
-		finalTargetPos = result.Position
-	end
-
-	local steps = 60
-	local height = math.random(2, 5)
-
-	for i = 1, steps do
-		local progress = i / steps
-		item.CFrame = CFrame.new(gears.parabolaPos(startPos, finalTargetPos, height, progress))
-		RunService.Heartbeat:Wait()
-	end
-
-	item.Parent = workspace.XP_Orbs -- Enable Pickup
-end
-
 -- MATH
 
 function gears.increaseToMultiplier(increaseValue)
@@ -122,7 +97,7 @@ function gears.increaseToMultiplier(increaseValue)
 	return 1 + increaseValue / 100
 end
 
-function gears.SumTable(t)
+function gears.sumTable(t)
 	local total = 0
 	for i = 1, #t do
 		total += t[i]
@@ -143,7 +118,7 @@ function gears.drawSphere(position, radius, color)
 	game.Debris:AddItem(adorn, 0.01)
 end
 
-function gears.DrawEdge(startPos, endPos, color)
+function gears.drawEdge(startPos, endPos, color)
 	local adorn = Instance.new("LineHandleAdornment")
 	adorn.Length = (endPos - startPos).Magnitude
 	adorn.Color3 = color or Color3.new(0, 1, 0)
@@ -158,7 +133,7 @@ function gears.DrawEdge(startPos, endPos, color)
 end
 
 function gears.drawRay(origin, direction, color)
-	gears.DrawEdge(origin, origin + direction, color)
+	gears.drawEdge(origin, origin + direction, color)
 end
 
 function gears.circlePoints(radius, division) -- TODO : Add Progress
@@ -176,7 +151,7 @@ function gears.drawCircle(basePos, circlePoints)
 	local function DrawEdge(point1, point2)
 		local startPos = basePos + Vector3.new(point1.X, 0, point1.Y)
 		local endPos = basePos + Vector3.new(point2.X, 0, point2.Y)
-		gears.DrawEdge(startPos, endPos)
+		gears.drawEdge(startPos, endPos)
 	end
 
 	-- Draw Edges

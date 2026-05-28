@@ -22,6 +22,8 @@ local PlayerService = Knit.CreateService({
 	},
 })
 
+local lifeRegenUpdates = {} -- per player
+
 -- SERVER FUNCTIONS
 
 function PlayerService:KnitInit()
@@ -56,31 +58,94 @@ function PlayerService:GetScore(userId)
 end
 
 function PlayerService:IncrementScore(userId, value)
-	store:dispatch(storeActions.IncrementScore(userId, value))
+	local score = self:GetScore(userId)
+	local newScore = score + value
+	store:dispatch(storeActions.SetScore(userId, newScore))
 
 	-- Replicate to Clients
-	local newScore = self:GetScore(userId)
 	self.Client.ScoreChanged:FireAll(userId, newScore)
 end
 
 -- STATS > Move to Combat/Stats Service?
+-- Most Stats work like this : baseX * increasedX = x
+-- some baseX (eg attackSpeedBase) come from weaponData
+-- every used / final x stats is stored in the playerStats (weaponData never mutate)
+
+-- TODO : Global access
+local function getStoreData(userId)
+	local storeState = store.getState(store)
+	local playerStats = storeState.players[userId].stats
+	local weaponData = storeState.players[userId].weaponData
+
+	return playerStats, weaponData
+end
 
 local playerStatsCalculation = { -- Fill with functions
-	-- calculateAttackDamage
-	-- calculateAttackSpeed
-	-- ...
+	calculateAttackDamage = function(userId)
+		local playerStats, weaponData = getStoreData(userId)
+
+		if not playerStats or not weaponData then
+			return
+		end
+
+		-- baseAttackDamage = weaponData.damage
+		local attackDamage = weaponData.damage * Gears.increaseToMultiplier(playerStats.increasedAttackDamage)
+
+		store:dispatch(storeActions.SetAttackDamage(userId, attackDamage))
+
+		-- print("Attack Damage = " .. attackDamage)
+	end,
+
+	calculateAttackSpeed = function(userId)
+		local playerStats, weaponData = getStoreData(userId)
+
+		if not playerStats or not weaponData then
+			return
+		end
+
+		local attackSpeed = weaponData.attackSpeed * Gears.increaseToMultiplier(playerStats.increasedAttackSpeed)
+		local animationTime = 1 / attackSpeed
+
+		store:dispatch(storeActions.SetAttackSpeed(userId, attackSpeed, animationTime))
+
+		-- print("Attack Speed = " .. attackSpeed)
+		-- print("Animation Time = " .. animationTime)
+	end,
+
+	calculateAoe = function(userId)
+		local playerStats, weaponData = getStoreData(userId)
+
+		if not playerStats or not weaponData then
+			return
+		end
+
+		local aoe = weaponData.aoe * Gears.increaseToMultiplier(playerStats.increasedAoe)
+
+		-- disspatch
+		store:dispatch(storeActions.SetAoe(userId, aoe))
+
+		-- print("AOE = " .. aoe)
+	end,
+
+	-- DR
+	-- PickupRange
 }
 
 function PlayerService.CalculateAllStats(userId)
-	for _, calculateStat in ipairs(playerStatsCalculation) do
+	for _, calculateStat in pairs(playerStatsCalculation) do
 		calculateStat(userId)
 	end
+
+	-- TODO : Send to Client -> Display on Client side character stats sheet
 end
 
 function PlayerService:ApplyStats(userId)
-	-- TODO
 	-- Make the current stats effective
-	-- Send to Client -> Display on Client side character stats sheet
+	-- eg restart lifeRegen thread
+
+	self.CalculateAllStats(userId)
+	-- weapon:ScaleTo(weaponInfo.weaponSize * Gears.IncreaseToMultiplier(playerStat.aoe))
+	-- MS
 end
 
 function PlayerService.AddXpToPlayer(player, xp)
