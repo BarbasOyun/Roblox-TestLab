@@ -13,22 +13,68 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
+-- Items Definitions / Authoring Data > Move to file
+local BASE_PROPERTIES_COUNT = 6
+
+banana = {
+	id = 0,
+	name = "Banana",
+	type = "Usable",
+	-- sprite = nil, -- Found using id
+	-- prefab = nil, -- Found using id
+	gridSizeX = 1,
+	gridSizeY = 1,
+	toolTipText = "A Banana",
+	-- useFunction = nil, -- Found using id
+	-- Additional data
+	maxStack = 10,
+	lifeHeal = 10, -- On Use
+}
+
+stick = {
+	id = 1,
+	name = "Stick",
+	type = "Reagent",
+	gridSizeX = 2,
+	gridSizeY = 1,
+	toolTipText = "A Stick",
+	maxStack = 5,
+}
+
+equipmentTypeDefinition = {
+	["Mace"] = {
+		gridSizeX = 2,
+		gridSizeY = 6,
+	},
+	-- Two-handed Mace
+	-- One-handed Sword
+	-- ...
+}
+
+itemVisualDefinition = {
+	{ ReplicatedStorage.Shared.Prefabs.Banana }, -- id 0 = Banana Prefab + Sprite
+}
+
+-- Item struct -> create item instance
+local ITEM_STRUCT = {
+	-- id = 0,
+	definitionId = 0,
+	-- userId = 0, -- Owner
+	name = "",
+	-- type = "",
+	gridSizeX = 1,
+	gridSizeY = 1,
+	toolTipText = "",
+	additionalData = {},
+}
+
 -- Weapon
-local WeaponBaseData = require(ReplicatedStorage.Shared.Data.WeaponData)
+local WeaponDefinition = require(ReplicatedStorage.Shared.AuthoringData.WeaponData)
 
 local weaponHitParam = OverlapParams.new()
 weaponHitParam.FilterType = Enum.RaycastFilterType.Include
 weaponHitParam.FilterDescendantsInstances = { workspace.WeaponHit }
 weaponHitParam.MaxParts = 100
-
-local ITEM_STRUCT = {
-	-- -Name
-	-- -Type
-	-- -Grid Size
-	-- -Icon / Sprite
-	-- -TooltipText
-	-- -Use Function -> on RClick
-}
 
 local CombatService = Knit.CreateService({
 	Name = "CombatService",
@@ -37,7 +83,7 @@ local CombatService = Knit.CreateService({
 		banana = ReplicatedStorage.Shared.Prefabs.Banana,
 		stick = ReplicatedStorage.Shared.Prefabs.Stick,
 	},
-	automaticItems = {
+	autoItems = {
 		smallXpOrb = ReplicatedStorage.Shared.Prefabs.SmallXpOrb,
 	},
 	Client = {
@@ -54,14 +100,6 @@ local attackBuffer = {}
 local lastAttacks = {}
 local comboIndexes = {} -- For Weapon Animation
 local comboReset = {}
-
-local function getStoreData(player)
-	local storeState = store.getState(store)
-	local playerStats = storeState.players[player.UserId].stats
-	local weaponData = storeState.players[player.UserId].weaponData
-
-	return playerStats, weaponData
-end
 
 -- ATTACK
 -- 1) Client : Player Input -> Ask Server to Attack
@@ -100,14 +138,14 @@ local function attackHit(player, playerStats, weaponData)
 	end
 
 	-- Hit Detection
-	local attackPosition = weaponData.attackPoint.WorldCFrame
+	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
 
-	local hits = workspace:GetPartBoundsInRadius(attackPosition.Position, playerStats.aoe, weaponHitParam)
+	local hits = workspace:GetPartBoundsInRadius(attackPosition, playerStats.aoe, weaponHitParam)
 	local humanoidsHit = {} -- Avoid hitting the same Enemy twice
 
 	-- Debug HitZone
 	Gears.executeFor(0.5, function()
-		Gears.drawSphere(attackPosition.Position, playerStats.aoe)
+		Gears.drawSphere(attackPosition, playerStats.aoe)
 	end)
 
 	for _, hit in ipairs(hits) do
@@ -120,6 +158,7 @@ local function attackHit(player, playerStats, weaponData)
 
 		-- Enemy Hit
 		humanoidsHit[humanoid] = true
+		-- hit:ApplyImpulse((hit.Position - player.Character.PrimaryPart.Position) * 50) -- Doesn't work -- TODO : Per Weapon
 		EnemyService:DamageEnemy(player.UserId, humanoid, damage)
 		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end
@@ -145,7 +184,7 @@ local function incrementCombo(player, weaponData)
 end
 
 local function attackCallback(player)
-	local playerStats, weaponData = getStoreData(player)
+	local playerStats, weaponData = PlayerService:GetStats(player.UserId)
 
 	local currentTime = tick()
 	local attackDelta = currentTime - lastAttacks[player.UserId] -- Time between last attack and now
@@ -172,7 +211,7 @@ end
 -- 2) Server Validation + Setup Expected Attack
 -- Player is asking to Attack using their Weapon
 local function attackValidation(player)
-	local playerStats, weaponData = getStoreData(player)
+	local playerStats, weaponData = PlayerService:GetStats(player.UserId)
 
 	if not playerStats or not weaponData then
 		warn("No playerStats or weaponData")
@@ -264,7 +303,7 @@ local function onUnequipped(weapon)
 
 	-- print(weapon.Name .. " Unequipped by player: " .. player.Name)
 
-	local weaponData = store.getState().players[player.UserId].weaponData
+	local weaponData = store.getState(store).players[player.UserId].weaponData
 
 	-- Remove Sounds
 	for _, sound in pairs(weaponData.sounds) do
@@ -274,19 +313,22 @@ local function onUnequipped(weapon)
 	-- Reset Data
 	setWeaponData(player, nil)
 	expectingAttack[player.UserId] = nil
-	comboIndexes[player.UserId] = nil
+	comboIndexes[player.UserId] = 0
 	comboReset[player.UserId] = nil
 
-	PlayerService.ApplyStats(player)
+	PlayerService:ApplyStats(player.UserId)
 
-	CombatService.equipWeapon:Fire(player, false)
+	CombatService.Client.equipWeapon:Fire(player, false)
 end
 
-local function createWeaponData(weapon, weaponType)
-	local weaponData = WeaponBaseData[weaponType]
+local function createWeapon(weapon, weaponType)
+	-- Weapon Definition -> Weapon Data Structure
+	local weaponData = WeaponDefinition[weaponType]
 	local handle = weapon.Handle
 
-	return {
+	-- TODO : Weapon Inventory Item
+	-- Dynamic Data / Instance
+	local weapon = {
 		-- Weapon
 		weapon = weapon,
 		weaponType = weaponData.weaponType,
@@ -301,13 +343,15 @@ local function createWeaponData(weapon, weaponType)
 		-- Misc
 		attackVFX = handle.AttackPoint.AttackHitVFX,
 		maxCombo = weaponData.maxCombo,
-	}
+	} -- Weapon Data Structure
+
+	return weapon
 end
 
 local function SetupWeaponInstances(weaponType)
 	local function setupWeapon(weapon)
 		print("Setup weapon : " .. weapon.Name)
-		local weaponData = createWeaponData(weapon, weaponType)
+		local weaponData = createWeapon(weapon, weaponType)
 
 		-- TODO : Use custom tool system
 		weapon.Equipped:Connect(function()
@@ -358,18 +402,31 @@ function CombatService:KnitStart()
 	end)
 
 	PlayerService.PlayerRemoved:Connect(function(userId)
+		-- Cleanup
 		lastAttacks[userId] = nil
 		comboIndexes[userId] = nil
+		expectingAttack[userId] = nil
+		attackBuffer[userId] = nil
+		comboReset[userId] = nil
 	end)
 end
 
 -- TODO : ItemService
 
--- Item Types = Equipment, Consumable, Reagent
+-- Items = Can go in Inventory
+-- Item Types
+-- 1) Equipment = Can be placed in appropriate equipment Slot -> used with character actions
+-- 2) Usable = Effect on right click -> Consumable = item destroyed
+-- 3) Reagent = Can be used for W/E Craft
+
+-- Pickups Type
+-- 1) Manual = Click
+-- 2) Auto = Vacuumed
+-- Orbs = Auto Pickup + Consumed on pickup eg XpOrbs
 
 function lootMovement(item, startPos)
-	item.Position = startPos
-	item.Parent = workspace
+	-- item.Position = startPos
+	item.CFrame = CFrame.new(startPos)
 
 	local targetPos = startPos + Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
 	local finalTargetPos = targetPos
@@ -393,22 +450,48 @@ end
 
 -- TODO : REDO
 -- Manual Pickup
-function CombatService:SpawnItem(item, position)
+function CombatService:SpawnItem(itemDefinition, position)
+	-- local newItem = itemDefinition:clone()
+	-- newItem.Parent = workspace
+
+	-- task.wait(lootMovement(newItem, position))
+
+	-- newItem.Parent = workspace.Pickup -- Enable Pickup
+
+	local newItem = Gears.deepCopy(ITEM_STRUCT)
+
+	newItem.definitionId = itemDefinition.id
+end
+
+function CombatService:SpawnWeapon(item, position)
+	-- TODO replace item with itemName
+	-- > Get Prefab using itemName
+
 	local newItem = item:clone()
-	task.wait(lootMovement(newItem, position))
+	newItem.Parent = workspace
+
+	task.wait(lootMovement(newItem.Handle, position))
 
 	newItem.Parent = workspace.Pickup -- Enable Pickup
 end
 
 -- Automatic Pickup using PickupRange stat
 function CombatService:SpawnAutomaticItem(item, position)
-	print(item)
-	print(position)
-
 	local newItem = item:clone()
+	newItem.Parent = workspace
+
 	task.wait(lootMovement(newItem, position))
 
-	newItem.Parent = workspace.AutomaticPickup
+	newItem.Parent = workspace.AutoPickup
+end
+
+function CombatService:SpawnManyItem(item, position, itemCount)
+	for i = 0, itemCount, 1 do
+		task.spawn(function()
+			CombatService:SpawnAutomaticItem(item, position)
+		end)
+		task.wait() -- delay
+	end
 end
 
 return CombatService

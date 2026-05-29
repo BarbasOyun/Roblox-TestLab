@@ -16,12 +16,15 @@ local PlayerController = Knit.CreateController({ Name = "PlayerController" })
 
 PlayerController.store = store
 
--- Attack
--- Variables
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
+
+-- Sounds
+local playerGui = player:WaitForChild("PlayerGui")
+local soundFolder = playerGui.ClientSounds
+local getOrbSound = soundFolder.GetOrb
 
 local animationTracks = {}
 
@@ -87,6 +90,11 @@ function PlayerController:KnitStart()
 	PlayerService.ScoreChanged:Connect(function(userId, newScore)
 		-- Update Score instead of Increment
 		store:dispatch(storeActions.SetScore(userId, newScore))
+	end)
+
+	-- Orb Auto Pickup
+	PlayerService.GetOrb:Connect(function()
+		getOrbSound:Play()
 	end)
 
 	-- CONTROLS

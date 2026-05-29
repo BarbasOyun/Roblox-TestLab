@@ -1,4 +1,4 @@
--- local Players = game:GetService("Players")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -19,20 +19,27 @@ local PlayerService = Knit.CreateService({
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		ScoreChanged = Knit.CreateSignal(),
+		GetOrb = Knit.CreateSignal(),
 	},
 })
 
+-- Authoring Data > Move to file
+-- local STATS_TYPE = {
+-- 	["attackSpeed"] = {
+-- 		dispatchAction = storeActions.SetIncreasedAttackSpeed,
+-- 	},
+-- }
+
 local lifeRegenUpdates = {} -- per player
 
--- SERVER FUNCTIONS
+-- PickupRange Parameters
+local PickupParam = OverlapParams.new()
+PickupParam.FilterType = Enum.RaycastFilterType.Include
+PickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
+PickupParam.MaxParts = 50
 
-function PlayerService:KnitInit()
-	print("PlayerService Initialized")
-end
-
-function PlayerService:KnitStart()
-	-- print("PlayerService Start")
-end
+local AUTO_PICKUP_FRAME = 5 -- AutoPickup X Frame
+local frameCount = 0
 
 -- Players
 function PlayerService:AddPlayer(userId, username)
@@ -67,22 +74,22 @@ function PlayerService:IncrementScore(userId, value)
 end
 
 -- STATS > Move to Combat/Stats Service?
+
 -- Most Stats work like this : baseX * increasedX = x
 -- some baseX (eg attackSpeedBase) come from weaponData
 -- every used / final x stats is stored in the playerStats (weaponData never mutate)
 
--- TODO : Global access
-local function getStoreData(userId)
-	local storeState = store.getState(store)
+function PlayerService:GetStats(userId)
+	local storeState = store:getState()
 	local playerStats = storeState.players[userId].stats
 	local weaponData = storeState.players[userId].weaponData
 
 	return playerStats, weaponData
 end
 
-local playerStatsCalculation = { -- Fill with functions
+local statsCalcFunctions = {
 	calculateAttackDamage = function(userId)
-		local playerStats, weaponData = getStoreData(userId)
+		local playerStats, weaponData = PlayerService:GetStats(userId)
 
 		if not playerStats or not weaponData then
 			return
@@ -97,7 +104,7 @@ local playerStatsCalculation = { -- Fill with functions
 	end,
 
 	calculateAttackSpeed = function(userId)
-		local playerStats, weaponData = getStoreData(userId)
+		local playerStats, weaponData = PlayerService:GetStats(userId)
 
 		if not playerStats or not weaponData then
 			return
@@ -113,7 +120,7 @@ local playerStatsCalculation = { -- Fill with functions
 	end,
 
 	calculateAoe = function(userId)
-		local playerStats, weaponData = getStoreData(userId)
+		local playerStats, weaponData = PlayerService:GetStats(userId)
 
 		if not playerStats or not weaponData then
 			return
@@ -131,8 +138,8 @@ local playerStatsCalculation = { -- Fill with functions
 	-- PickupRange
 }
 
-function PlayerService.CalculateAllStats(userId)
-	for _, calculateStat in pairs(playerStatsCalculation) do
+function PlayerService:CalculateAllStats(userId)
+	for _, calculateStat in pairs(statsCalcFunctions) do
 		calculateStat(userId)
 	end
 
@@ -143,12 +150,28 @@ function PlayerService:ApplyStats(userId)
 	-- Make the current stats effective
 	-- eg restart lifeRegen thread
 
-	self.CalculateAllStats(userId)
+	self:CalculateAllStats(userId)
 	-- weapon:ScaleTo(weaponInfo.weaponSize * Gears.IncreaseToMultiplier(playerStat.aoe))
 	-- MS
 end
 
-function PlayerService.AddXpToPlayer(player, xp)
+--[[ TODO : Implement
+function PlayerService:AddIncreasedStat(userId, statType, value)
+	-- Get stat
+	local newStat = store:getState().players[userId][statType] + value
+	store:dispatch(STATS_TYPE[statType](userId, newStat))
+end
+]]
+
+function PlayerService:AddIncreasedAttackSpeed(userId, value)
+	local newincreasedAttackSpeed = store:getState().players[userId].stats.increasedAttackSpeed + value
+	store:dispatch(storeActions.SetIncreasedAttackSpeed(userId, newincreasedAttackSpeed))
+
+	-- self:CalculateAllStats(userId)
+	statsCalcFunctions.calculateAttackSpeed(userId)
+end
+
+function PlayerService:AddXpToPlayer(player, xp)
 	-- print(player.Name .. " Gained : " .. xp .. " XP")
 	-- local playerStat = playersStats[player.UserId]
 	-- playerStat.currentXp.Value += xp * Gears.increaseToMultiplier(playerStat.increasedXp)
@@ -156,9 +179,11 @@ function PlayerService.AddXpToPlayer(player, xp)
 	-- if playerStat.currentXp.Value >= playerStat.levelUpXp.Value then
 	-- 	playersStats.LevelUp(player, playerStat)
 	-- end
+
+	-- Dispatch xp
 end
 
-function PlayerService.LevelUp(player, playerStat)
+function PlayerService:LevelUp(player, playerStat)
 	-- Compute XP
 	-- local overXp = playerStat.currentXp.Value - playerStat.levelUpXp.Value
 	-- playerStat.waitingLevel += 1
@@ -170,6 +195,85 @@ function PlayerService.LevelUp(player, playerStat)
 	-- levelUpEvent:FireClient(player, playerStat.level, playerStat.waitingLevel)
 
 	-- playersStats.AddXpToLvl(player, overXp)
+
+	-- Dispatch Lvl
+end
+
+-- Auto Pickup
+local function getOrb(orb, player)
+	if orb.Name == "SmallXpOrb" then
+		-- print("Add Small XP Orb")
+		-- PlayerService:AddXpToPlayer(10)
+		PlayerService:IncrementScore(player.UserId, 1)
+	end
+
+	PlayerService.Client.GetOrb:Fire(player)
+	orb:Destroy()
+end
+
+local function autoPickup(character, orb, player)
+	if not orb.Parent or orb.Parent ~= workspace.AutoPickup then
+		return
+	end
+
+	orb.Parent = game.Workspace
+	orb.CanCollide = false
+
+	-- Lerp Orb
+	local startPos = orb.CFrame
+
+	local steps = 20
+	local progress = 0
+	local speed = 1 / steps / 4
+	local acceleration = (1 / steps - speed) / (steps / 2)
+
+	for _ = 1, steps do
+		progress += speed
+		speed += acceleration
+		orb.CFrame = startPos:Lerp(character:GetPivot(), progress)
+		RunService.Heartbeat:Wait()
+	end
+
+	getOrb(orb, player)
+end
+
+local function autoPickupRange()
+	if frameCount < AUTO_PICKUP_FRAME then
+		frameCount += 1
+		return
+	end
+
+	frameCount = 0
+
+	local storeState = store:getState()
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		local playerStats = storeState.players[player.userId].stats
+		local character = player.Character or player.CharacterAdded:Wait()
+
+		local playerPos = character.HumanoidRootPart.CFrame.Position
+		local pickupRange = playerStats.pickupRange
+
+		-- DEBUG
+		-- Gears.DisplayHitBox(position, pickupRange, 0.1)
+
+		local orbs = workspace:GetPartBoundsInRadius(playerPos, pickupRange, PickupParam)
+
+		for _, orb in ipairs(orbs) do
+			autoPickup(character, orb, player)
+		end
+	end
+end
+
+-- Start Service
+function PlayerService:KnitInit()
+	print("PlayerService Initialized")
+
+	RunService.Heartbeat:Connect(autoPickupRange)
+end
+
+function PlayerService:KnitStart()
+	-- print("PlayerService Start")
 end
 
 return PlayerService

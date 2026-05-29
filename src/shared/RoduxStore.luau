@@ -2,16 +2,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
--- Rodux hold a table of players, key = player.UserId
+-- Rodux store hold a table of players
+-- key = player.UserId
 local PLAYER_STRUCT = {
 	username = "",
 	score = 0,
 	inventory = {},
 	stats = {},
 	weaponData = nil,
+	-- gear
 }
 
--- Define : PlayerStats struct & Authoring Data > Move to file
+-- 1) Define PlayerStats struct
+-- 2) Authoring Data > Move to file
+-- TODO : Change keys to strings -> Common access
 local PLAYER_STATS_STRUCT = {
 	-- Level
 	level = 1,
@@ -29,36 +33,27 @@ local PLAYER_STATS_STRUCT = {
 	increasedAoe = 0,
 	aoe = 0,
 	-- Defensive
-	-- baseLife
-	-- increasedLife
+	-- baseLife = 100
+	-- increasedLife = 0
 	maxLife = 100,
 	life = 100,
 	lifeRegen = 1,
 	damageReduction = 0,
 	-- Utility
 	movementSpeed = 15,
-	manualPickupRange = 5, -- manual = pickup item with mouse
+	manualPickupRange = 5,
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
 }
 
-local ITEM_STRUCT = {
-	type = 0,
-	sprite = nil,
-	prefab = nil,
-	size_x = 1,
-	size_y = 1,
-}
-
 local INVENTORY_STRUCT = {
-	inventory_space = {}, -- bool flattened array
+	inventory_space = {}, -- flat bool array
 	items = {}, -- Key = 2D Position
 }
 
--- Default values
 local INVENTORY_ROW_SIZE = 10
-local INVENTORY_COL_SIZE = 10
+local INVENTORY_COL_SIZE = 5
 
 -- RODUX ACTIONS
 
@@ -114,12 +109,19 @@ local Actions = {
 		}
 	end,
 
-	-- Include increased?
 	SetAttackDamage = function(userId, attackDamage)
 		return {
 			type = "SetAttackDamage",
 			userId = userId,
 			attackDamage = attackDamage,
+		}
+	end,
+
+	SetIncreasedAttackSpeed = function(userId, increasedAttackSpeed)
+		return {
+			type = "SetIncreasedAttackSpeed",
+			userId = userId,
+			increasedAttackSpeed = increasedAttackSpeed,
 		}
 	end,
 
@@ -150,6 +152,7 @@ local playerReducer = Rodux.createReducer({}, {
 		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
 		players[action.userId].username = action.username
 		players[action.userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
+		-- players[action.userId].inventory = Gears.deepCopy(INVENTORY_STRUCT)
 		return players
 	end,
 
@@ -194,6 +197,12 @@ local playerReducer = Rodux.createReducer({}, {
 	SetAttackDamage = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].stats.attackDamage = action.attackDamage
+		return players
+	end,
+
+	SetIncreasedAttackSpeed = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].stats.increasedAttackSpeed = action.increasedAttackSpeed
 		return players
 	end,
 

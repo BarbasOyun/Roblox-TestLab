@@ -90,32 +90,13 @@ function gears.waitUntil(condition)
 	return true
 end
 
--- MATH
+-- DEBUG & PERF
 
-function gears.increaseToMultiplier(increaseValue)
-	-- e.g. 10% Increase -> 1.1
-	return 1 + increaseValue / 100
-end
-
-function gears.sumTable(t)
-	local total = 0
-	for i = 1, #t do
-		total += t[i]
-	end
-	return total
-end
-
-function gears.drawSphere(position, radius, color)
-	local adorn = Instance.new("SphereHandleAdornment")
-	adorn.Radius = radius
-	adorn.Color3 = color or Color3.new(0.5, 0, 0)
-	adorn.Transparency = 0.5
-	adorn.Adornee = workspace.Terrain -- Must be attached to something
-	adorn.CFrame = CFrame.new(position)
-	adorn.AlwaysOnTop = true
-	adorn.Parent = workspace.Terrain
-
-	game.Debris:AddItem(adorn, 0.01)
+-- Simple test
+function gears.performanceTest(lambda)
+	print("Performance Test START : " .. tick())
+	lambda()
+	print("Performance Test END : " .. tick())
 end
 
 function gears.drawEdge(startPos, endPos, color)
@@ -136,6 +117,50 @@ function gears.drawRay(origin, direction, color)
 	gears.drawEdge(origin, origin + direction, color)
 end
 
+function gears.drawCircle(basePos, circlePoints)
+	local function drawEdge(point1, point2)
+		local startPos = basePos + Vector3.new(point1.X, 0, point1.Y)
+		local endPos = basePos + Vector3.new(point2.X, 0, point2.Y)
+		gears.drawEdge(startPos, endPos)
+	end
+
+	-- Draw Edges
+	for index = 1, #circlePoints - 1, 1 do
+		drawEdge(circlePoints[index], circlePoints[index + 1])
+	end
+
+	-- Draw Last Edges : Last Point -> First
+	drawEdge(circlePoints[#circlePoints], circlePoints[1])
+end
+
+function gears.drawSphere(position, radius, color)
+	local adorn = Instance.new("SphereHandleAdornment")
+	adorn.Radius = radius
+	adorn.Color3 = color or Color3.new(0.5, 0, 0)
+	adorn.Transparency = 0.5
+	adorn.Adornee = workspace.Terrain -- Must be attached to something
+	adorn.CFrame = CFrame.new(position)
+	adorn.AlwaysOnTop = true
+	adorn.Parent = workspace.Terrain
+
+	game.Debris:AddItem(adorn, 0.01)
+end
+
+-- MATH
+
+function gears.increaseToMultiplier(increaseValue)
+	-- eg 10% Increase -> 1.1
+	return 1 + increaseValue / 100
+end
+
+function gears.sumTable(t)
+	local total = 0
+	for i = 1, #t do
+		total += t[i]
+	end
+	return total
+end
+
 function gears.circlePoints(radius, division) -- TODO : Add Progress
 	local points = {}
 	local pointDistance = (math.pi * 2) / division
@@ -145,22 +170,6 @@ function gears.circlePoints(radius, division) -- TODO : Add Progress
 	end
 
 	return points
-end
-
-function gears.drawCircle(basePos, circlePoints)
-	local function DrawEdge(point1, point2)
-		local startPos = basePos + Vector3.new(point1.X, 0, point1.Y)
-		local endPos = basePos + Vector3.new(point2.X, 0, point2.Y)
-		gears.drawEdge(startPos, endPos)
-	end
-
-	-- Draw Edges
-	for index = 1, #circlePoints - 1, 1 do
-		DrawEdge(circlePoints[index], circlePoints[index + 1])
-	end
-
-	-- Draw Last Edges : Last Point -> First
-	DrawEdge(circlePoints[#circlePoints], circlePoints[1])
 end
 
 function gears.floatRandom(minNbr, maxNbr)
