@@ -10,9 +10,10 @@ local storeActions = RoduxStore.Actions
 local Knit = require(ReplicatedStorage.Packages.Knit)
 --  Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local CombatService = nil
-
 local PlayerController = Knit.CreateController({ Name = "PlayerController" })
+
+local CombatService = nil
+-- local ItemService = nil
 
 PlayerController.store = store
 
@@ -72,9 +73,52 @@ function PlayerController:KnitInit()
 	player.CharacterAdded:Connect(onCharacterAdded)
 end
 
+local function setupControls()
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		--print("Input detected: " .. tostring(input.UserInputType) .. "Game processed: " .. tostring(gameProcessed))
+		if gameProcessed then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			isLClickDown = true
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			isLClickDown = false
+		end
+	end)
+end
+
+local function setupAttack()
+	-- 1) Client : Player Input -> Ask Server to Attack
+	RunService.Heartbeat:Connect(function()
+		if isLClickDown then
+			print("Ask Server to Attack")
+			CombatService.startAttack:Fire()
+		end
+	end)
+
+	-- 3) Clients : Animation
+	-- Server Validated the attack
+	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
+		-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
+		animationTracks[animationId]:Play()
+		animationTracks[animationId]:AdjustSpeed(animationSpeed)
+	end)
+end
+
 function PlayerController:KnitStart()
-	CombatService = Knit.GetService("CombatService")
 	local PlayerService = Knit.GetService("PlayerService")
+
+	CombatService = Knit.GetService("CombatService")
+	-- ItemService = Knit.GetService("ItemService")
 
 	-- Players Join/Leave Events
 	PlayerService.PlayerAdded:Connect(function(userId, username)
@@ -97,44 +141,8 @@ function PlayerController:KnitStart()
 		getOrbSound:Play()
 	end)
 
-	-- CONTROLS
-
-	UserInputService.InputBegan:Connect(function(input, gameProcessed)
-		--print("Input detected: " .. tostring(input.UserInputType) .. "Game processed: " .. tostring(gameProcessed))
-		if gameProcessed then
-			return
-		end
-
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			isLClickDown = true
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input, gameProcessed)
-		if gameProcessed then
-			return
-		end
-
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			isLClickDown = false
-		end
-	end)
-
-	-- 1) Client : Player Input -> Ask Server to Attack
-	RunService.Heartbeat:Connect(function()
-		if isLClickDown then
-			print("Ask Server to Attack")
-			CombatService.startAttack:Fire()
-		end
-	end)
-
-	-- 3) Clients : Animation
-	-- Server Validated the attack
-	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
-		-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
-		animationTracks[animationId]:Play()
-		animationTracks[animationId]:AdjustSpeed(animationSpeed)
-	end)
+	setupControls()
+	setupAttack()
 end
 
 return PlayerController

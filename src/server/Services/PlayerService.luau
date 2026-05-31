@@ -19,18 +19,17 @@ local PlayerService = Knit.CreateService({
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		ScoreChanged = Knit.CreateSignal(),
-		GetOrb = Knit.CreateSignal(),
 	},
 })
 
--- Authoring Data > Move to file
+local ItemService = nil
+
+-- TODO : Implement
 -- local STATS_TYPE = {
 -- 	["attackSpeed"] = {
 -- 		dispatchAction = storeActions.SetIncreasedAttackSpeed,
 -- 	},
 -- }
-
-local lifeRegenUpdates = {} -- per player
 
 -- PickupRange Parameters
 local PickupParam = OverlapParams.new()
@@ -38,7 +37,7 @@ PickupParam.FilterType = Enum.RaycastFilterType.Include
 PickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
 PickupParam.MaxParts = 50
 
-local AUTO_PICKUP_FRAME = 5 -- AutoPickup X Frame
+local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
 local frameCount = 0
 
 -- Players
@@ -64,7 +63,7 @@ function PlayerService:GetScore(userId)
 	return if score ~= nil then score else 0
 end
 
-function PlayerService:IncrementScore(userId, value)
+function PlayerService:AddScore(userId, value)
 	local score = self:GetScore(userId)
 	local newScore = score + value
 	store:dispatch(storeActions.SetScore(userId, newScore))
@@ -167,7 +166,6 @@ function PlayerService:AddIncreasedAttackSpeed(userId, value)
 	local newincreasedAttackSpeed = store:getState().players[userId].stats.increasedAttackSpeed + value
 	store:dispatch(storeActions.SetIncreasedAttackSpeed(userId, newincreasedAttackSpeed))
 
-	-- self:CalculateAllStats(userId)
 	statsCalcFunctions.calculateAttackSpeed(userId)
 end
 
@@ -200,27 +198,16 @@ function PlayerService:LevelUp(player, playerStat)
 end
 
 -- Auto Pickup
-local function getOrb(orb, player)
-	if orb.Name == "SmallXpOrb" then
-		-- print("Add Small XP Orb")
-		-- PlayerService:AddXpToPlayer(10)
-		PlayerService:IncrementScore(player.UserId, 1)
-	end
-
-	PlayerService.Client.GetOrb:Fire(player)
-	orb:Destroy()
-end
-
-local function autoPickup(character, orb, player)
-	if not orb.Parent or orb.Parent ~= workspace.AutoPickup then
+local function autoPickup(player, itemModel)
+	if not itemModel.Parent or itemModel.Parent ~= workspace.AutoPickup then
 		return
 	end
 
-	orb.Parent = game.Workspace
-	orb.CanCollide = false
+	itemModel.Parent = game.Workspace
+	itemModel.CanCollide = false
 
-	-- Lerp Orb
-	local startPos = orb.CFrame
+	-- Lerp itemModel
+	local startPos = itemModel.CFrame
 
 	local steps = 20
 	local progress = 0
@@ -230,11 +217,12 @@ local function autoPickup(character, orb, player)
 	for _ = 1, steps do
 		progress += speed
 		speed += acceleration
-		orb.CFrame = startPos:Lerp(character:GetPivot(), progress)
+		itemModel.CFrame = startPos:Lerp(player.character:GetPivot(), progress)
 		RunService.Heartbeat:Wait()
 	end
 
-	getOrb(orb, player)
+	-- ItemService:GetOrb(orb, player)
+	ItemService:PickupItem(player, itemModel)
 end
 
 local function autoPickupRange()
@@ -257,23 +245,27 @@ local function autoPickupRange()
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, pickupRange, 0.1)
 
-		local orbs = workspace:GetPartBoundsInRadius(playerPos, pickupRange, PickupParam)
+		local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, PickupParam)
 
-		for _, orb in ipairs(orbs) do
-			autoPickup(character, orb, player)
+		for _, itemModel in ipairs(autoPickupItems) do
+			autoPickup(player, itemModel)
 		end
 	end
 end
 
+-- Unit Tests
+
 -- Start Service
 function PlayerService:KnitInit()
 	print("PlayerService Initialized")
-
-	RunService.Heartbeat:Connect(autoPickupRange)
 end
 
 function PlayerService:KnitStart()
 	-- print("PlayerService Start")
+
+	ItemService = Knit.GetService("ItemService")
+
+	RunService.Heartbeat:Connect(autoPickupRange)
 end
 
 return PlayerService

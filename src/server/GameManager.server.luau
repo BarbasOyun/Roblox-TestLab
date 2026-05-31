@@ -7,6 +7,7 @@ Knit.OnStart():await()
 local PlayerService = Knit.GetService("PlayerService")
 local CombatService = Knit.GetService("CombatService")
 
+-- In World UI
 local weaponSpawnButton = workspace.WeaponSpawner.Surface.SurfaceGui.TextButton
 local weaponSpawnPos = workspace.WeaponSpawner.SpawnPoint.Position
 
@@ -21,10 +22,11 @@ Players.PlayerAdded:Connect(function(player)
 
 	PlayerService:AddPlayer(userId, player.Name)
 
-	-- PlayerService:IncrementScore(userId, 1) -- Test
+	-- Manual Tests
+	-- PlayerService:IncrementScore(userId, 1) -- Test Score
 
 	-- Stress Test Attack Speed
-	PlayerService:AddIncreasedAttackSpeed(userId, 1000)
+	-- PlayerService:AddIncreasedAttackSpeed(userId, 1000)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -35,7 +37,6 @@ end)
 
 -- In World UI
 weaponSpawnButton.MouseButton1Click:Connect(function()
-	print("Spawn Weapon")
 	CombatService:SpawnWeapon(CombatService.items.woodenClub, weaponSpawnPos)
 end)
 

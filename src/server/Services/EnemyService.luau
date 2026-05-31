@@ -1,12 +1,17 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
+local EnemyService = Knit.CreateService({
+	Name = "EnemyService",
+	-- Client = {},
+})
+
 local enemyParent = workspace.WeaponHit
 
-local PlayerService = nil
-local CombatService = nil
+local ItemService = nil
 
 -- ENEMY AUTHORING DATA
 -- Move to file
@@ -26,11 +31,6 @@ local life = {}
 local lifeBar = {}
 local deathEvent = {}
 
-local EnemyService = Knit.CreateService({
-	Name = "EnemyService",
-	-- Client = {},
-})
-
 -- Take an instance and associate it stats
 function EnemyService:CreateEnemy(humanoid, enemyType)
 	local character = humanoid.Parent
@@ -46,7 +46,7 @@ function EnemyService:CreateEnemy(humanoid, enemyType)
 	end
 end
 
-function EnemyService:DamageEnemy(userId, humanoid, damage)
+function EnemyService:DamageEnemy(player, humanoid, damage)
 	if not life[humanoid] then
 		return
 	end
@@ -65,13 +65,13 @@ function EnemyService:DamageEnemy(userId, humanoid, damage)
 
 	if life <= 0 then
 		local overKillDamage = math.abs(life)
-		self:KillEnemy(userId, humanoid, overKillDamage)
+		self:KillEnemy(player, humanoid, overKillDamage)
 	end
 end
 
-function EnemyService:KillEnemy(userId, humanoid, overKillDamage)
+function EnemyService:KillEnemy(player, humanoid, overKillDamage)
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
-	deathEvent[humanoid]:Fire(userId)
+	deathEvent[humanoid]:Fire(player)
 
 	life[humanoid] = nil
 	deathEvent[humanoid] = nil
@@ -97,16 +97,14 @@ function EnemyService:setupDummy(dummy)
 	-- Death
 	local clone = dummy:Clone()
 
-	local function onDeath(userId)
+	local function onDeath(player)
 		-- Feedback
 		-- print(dummy.Name .. " Died")
 		-- dismember(dummy)
 		dummy.Torso.Snap:Destroy()
 
 		-- Rewards
-		-- PlayerService:IncrementScore(userId, 1)
-		local orbsRng = math.random(1, 3)
-		CombatService:SpawnManyItem(CombatService.autoItems.smallXpOrb, dummy:GetPivot().Position, orbsRng)
+		ItemService:GenerateLoot(player, dummy)
 
 		-- Respawn
 		task.wait(1)
@@ -130,11 +128,12 @@ local function setupAllDummies()
 end
 
 function EnemyService:KnitInit()
-	PlayerService = Knit.GetService("PlayerService")
-	CombatService = Knit.GetService("CombatService")
+	print("EnemyService Init")
 end
 
 function EnemyService:KnitStart()
+	ItemService = Knit.GetService("ItemService")
+
 	setupAllDummies()
 end
 

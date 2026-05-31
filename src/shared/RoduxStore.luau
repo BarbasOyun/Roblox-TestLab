@@ -10,7 +10,7 @@ local PLAYER_STRUCT = {
 	inventory = {},
 	stats = {},
 	weaponData = nil,
-	-- gear
+	-- gear / equipment
 }
 
 -- 1) Define PlayerStats struct
@@ -46,14 +46,6 @@ local PLAYER_STATS_STRUCT = {
 	increasedPickupRange = 0,
 	pickupRange = 10,
 }
-
-local INVENTORY_STRUCT = {
-	inventory_space = {}, -- flat bool array
-	items = {}, -- Key = 2D Position
-}
-
-local INVENTORY_ROW_SIZE = 10
-local INVENTORY_COL_SIZE = 5
 
 -- RODUX ACTIONS
 

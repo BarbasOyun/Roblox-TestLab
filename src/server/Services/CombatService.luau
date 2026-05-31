@@ -1,97 +1,23 @@
-local Players = game:GetService("Players")
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local Gears = require(ReplicatedStorage.Shared.Gears)
 
+local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
+
+local CombatService = Knit.CreateService({
+	Name = "CombatService",
+	Client = {
+		startAttack = Knit.CreateSignal(),
+		finishAttack = Knit.CreateSignal(),
+	},
+})
 
 local PlayerService = nil
 local EnemyService = nil
-
-local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local storeActions = RoduxStore.Actions
-
--- Items Definitions / Authoring Data > Move to file
-local BASE_PROPERTIES_COUNT = 6
-
-banana = {
-	id = 0,
-	name = "Banana",
-	type = "Usable",
-	-- sprite = nil, -- Found using id
-	-- prefab = nil, -- Found using id
-	gridSizeX = 1,
-	gridSizeY = 1,
-	toolTipText = "A Banana",
-	-- useFunction = nil, -- Found using id
-	-- Additional data
-	maxStack = 10,
-	lifeHeal = 10, -- On Use
-}
-
-stick = {
-	id = 1,
-	name = "Stick",
-	type = "Reagent",
-	gridSizeX = 2,
-	gridSizeY = 1,
-	toolTipText = "A Stick",
-	maxStack = 5,
-}
-
-equipmentTypeDefinition = {
-	["Mace"] = {
-		gridSizeX = 2,
-		gridSizeY = 6,
-	},
-	-- Two-handed Mace
-	-- One-handed Sword
-	-- ...
-}
-
-itemVisualDefinition = {
-	{ ReplicatedStorage.Shared.Prefabs.Banana }, -- id 0 = Banana Prefab + Sprite
-}
-
--- Item struct -> create item instance
-local ITEM_STRUCT = {
-	-- id = 0,
-	definitionId = 0,
-	-- userId = 0, -- Owner
-	name = "",
-	-- type = "",
-	gridSizeX = 1,
-	gridSizeY = 1,
-	toolTipText = "",
-	additionalData = {},
-}
-
--- Weapon
-local WeaponDefinition = require(ReplicatedStorage.Shared.AuthoringData.WeaponData)
 
 local weaponHitParam = OverlapParams.new()
 weaponHitParam.FilterType = Enum.RaycastFilterType.Include
 weaponHitParam.FilterDescendantsInstances = { workspace.WeaponHit }
 weaponHitParam.MaxParts = 100
-
-local CombatService = Knit.CreateService({
-	Name = "CombatService",
-	items = {
-		woodenClub = ReplicatedStorage.Shared.Prefabs.WoodenClub,
-		banana = ReplicatedStorage.Shared.Prefabs.Banana,
-		stick = ReplicatedStorage.Shared.Prefabs.Stick,
-	},
-	autoItems = {
-		smallXpOrb = ReplicatedStorage.Shared.Prefabs.SmallXpOrb,
-	},
-	Client = {
-		equipWeapon = Knit.CreateSignal(),
-		startAttack = Knit.CreateSignal(),
-		finishAttack = Knit.CreateSignal(),
-	},
-})
 
 -- Player Combat Data
 -- Only used by CombatService > not worth to put on store
@@ -101,7 +27,9 @@ local lastAttacks = {}
 local comboIndexes = {} -- For Weapon Animation
 local comboReset = {}
 
--- ATTACK
+local lifeRegenUpdates = {} -- per player
+
+-- ATTACK STEPS
 -- 1) Client : Player Input -> Ask Server to Attack
 -- 2) Server : Validation + Setup Expected Attack -> startAttack Event
 -- 3) Clients : Animation
@@ -159,7 +87,7 @@ local function attackHit(player, playerStats, weaponData)
 		-- Enemy Hit
 		humanoidsHit[humanoid] = true
 		-- hit:ApplyImpulse((hit.Position - player.Character.PrimaryPart.Position) * 50) -- Doesn't work -- TODO : Per Weapon
-		EnemyService:DamageEnemy(player.UserId, humanoid, damage)
+		EnemyService:DamageEnemy(player, humanoid, damage)
 		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end
 
@@ -251,137 +179,10 @@ local function attackValidation(player)
 	startAttack()
 end
 
--- WEAPON : Setup & Equip
-
-local function setWeaponData(player, weaponData)
-	-- print(player.Name .. " new Weapon Data")
-	store:dispatch(storeActions.SetWeaponData(player.UserId, weaponData))
-end
-
-local function addSounds(weaponData, player)
-	local playerGUi = player.PlayerGui
-
-	-- Create Sounds
-	local prefabs = ReplicatedStorage.Shared.Prefabs
-	prefabs.Unsheath:clone().Parent = playerGUi
-	prefabs.Slash:clone().Parent = playerGUi
-	prefabs.CriticalSlash:clone().Parent = playerGUi
-
-	weaponData.sounds = {
-		unsheath = playerGUi.Unsheath,
-		slash = playerGUi.Slash,
-		crit = playerGUi.CriticalSlash,
-	}
-end
-
-local function onEquipped(weapon, weaponData)
-	local character = weapon.Parent
-	local player = Players:GetPlayerFromCharacter(character)
-	print(weapon.Name .. " Equipped by player: " .. player.Name)
-
-	-- TODO : Check if sounds are available -> Spawn & Delete sounds
-	addSounds(weaponData, player)
-
-	setWeaponData(player, weaponData)
-	PlayerService:ApplyStats(player.UserId)
-
-	weaponData.sounds.unsheath:Play()
-
-	CombatService.Client.equipWeapon:Fire(player, true)
-end
-
-local function onUnequipped(weapon)
-	if not weapon or weapon.Parent == nil then
-		return
-	end
-
-	local player = weapon.Parent.Parent
-
-	if not player or Players:FindFirstChild(player.Name, false) == nil then
-		return
-	end
-
-	-- print(weapon.Name .. " Unequipped by player: " .. player.Name)
-
-	local weaponData = store.getState(store).players[player.UserId].weaponData
-
-	-- Remove Sounds
-	for _, sound in pairs(weaponData.sounds) do
-		sound:Destroy()
-	end
-
-	-- Reset Data
-	setWeaponData(player, nil)
-	expectingAttack[player.UserId] = nil
-	comboIndexes[player.UserId] = 0
-	comboReset[player.UserId] = nil
-
-	PlayerService:ApplyStats(player.UserId)
-
-	CombatService.Client.equipWeapon:Fire(player, false)
-end
-
-local function createWeapon(weapon, weaponType)
-	-- Weapon Definition -> Weapon Data Structure
-	local weaponData = WeaponDefinition[weaponType]
-	local handle = weapon.Handle
-
-	-- TODO : Weapon Inventory Item
-	-- Dynamic Data / Instance
-	local weapon = {
-		-- Weapon
-		weapon = weapon,
-		weaponType = weaponData.weaponType,
-		weaponSize = weapon:GetScale(),
-		handle = handle,
-		attackPoint = handle.AttackPoint,
-		-- Offense
-		damage = weaponData.damage,
-		attackSpeed = weaponData.attackSpeed,
-		-- Utility
-		aoe = weaponData.range,
-		-- Misc
-		attackVFX = handle.AttackPoint.AttackHitVFX,
-		maxCombo = weaponData.maxCombo,
-	} -- Weapon Data Structure
-
-	return weapon
-end
-
-local function SetupWeaponInstances(weaponType)
-	local function setupWeapon(weapon)
-		print("Setup weapon : " .. weapon.Name)
-		local weaponData = createWeapon(weapon, weaponType)
-
-		-- TODO : Use custom tool system
-		weapon.Equipped:Connect(function()
-			onEquipped(weapon, weaponData)
-		end)
-
-		weapon.Unequipped:Connect(function()
-			onUnequipped(weapon)
-		end)
-	end
-
-	-- Setup Existing Weapons
-	for _, weapon in pairs(CollectionService:GetTagged(weaponType)) do
-		setupWeapon(weapon)
-	end
-
-	-- Setup Future Weapons
-	CollectionService:GetInstanceAddedSignal(weaponType):Connect(function(weapon)
-		setupWeapon(weapon)
-	end)
-end
-
 -- COMBAT SERVICE
 
 function CombatService:KnitInit()
 	print("CombatService Init")
-
-	SetupWeaponInstances("WoodenClub")
-	-- SetupWeaponInstances("IronMace")
-	-- SetupWeaponInstances("IronAxe")
 
 	self.Client.startAttack:Connect(function(player)
 		attackValidation(player)
@@ -395,6 +196,7 @@ end
 function CombatService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 	EnemyService = Knit.GetService("EnemyService")
+	local ItemService = Knit.GetService("ItemService")
 
 	PlayerService.PlayerAdded:Connect(function(userId)
 		lastAttacks[userId] = 0
@@ -409,89 +211,12 @@ function CombatService:KnitStart()
 		attackBuffer[userId] = nil
 		comboReset[userId] = nil
 	end)
-end
 
--- TODO : ItemService
-
--- Items = Can go in Inventory
--- Item Types
--- 1) Equipment = Can be placed in appropriate equipment Slot -> used with character actions
--- 2) Usable = Effect on right click -> Consumable = item destroyed
--- 3) Reagent = Can be used for W/E Craft
-
--- Pickups Type
--- 1) Manual = Click
--- 2) Auto = Vacuumed
--- Orbs = Auto Pickup + Consumed on pickup eg XpOrbs
-
-function lootMovement(item, startPos)
-	-- item.Position = startPos
-	item.CFrame = CFrame.new(startPos)
-
-	local targetPos = startPos + Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
-	local finalTargetPos = targetPos
-	local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
-
-	if result then
-		finalTargetPos = result.Position
-	else
-		return
-	end
-
-	local steps = 60
-	local height = math.random(2, 5)
-
-	for i = 1, steps do
-		local progress = i / steps
-		item.CFrame = CFrame.new(Gears.parabolaPos(startPos, finalTargetPos, height, progress))
-		RunService.Heartbeat:Wait()
-	end
-end
-
--- TODO : REDO
--- Manual Pickup
-function CombatService:SpawnItem(itemDefinition, position)
-	-- local newItem = itemDefinition:clone()
-	-- newItem.Parent = workspace
-
-	-- task.wait(lootMovement(newItem, position))
-
-	-- newItem.Parent = workspace.Pickup -- Enable Pickup
-
-	local newItem = Gears.deepCopy(ITEM_STRUCT)
-
-	newItem.definitionId = itemDefinition.id
-end
-
-function CombatService:SpawnWeapon(item, position)
-	-- TODO replace item with itemName
-	-- > Get Prefab using itemName
-
-	local newItem = item:clone()
-	newItem.Parent = workspace
-
-	task.wait(lootMovement(newItem.Handle, position))
-
-	newItem.Parent = workspace.Pickup -- Enable Pickup
-end
-
--- Automatic Pickup using PickupRange stat
-function CombatService:SpawnAutomaticItem(item, position)
-	local newItem = item:clone()
-	newItem.Parent = workspace
-
-	task.wait(lootMovement(newItem, position))
-
-	newItem.Parent = workspace.AutoPickup
-end
-
-function CombatService:SpawnManyItem(item, position, itemCount)
-	for i = 0, itemCount, 1 do
-		task.spawn(function()
-			CombatService:SpawnAutomaticItem(item, position)
-		end)
-		task.wait() -- delay
-	end
+	ItemService.UnequipWeapon:Connect(function(player)
+		expectingAttack[player.UserId] = nil
+		comboIndexes[player.UserId] = 0
+		comboReset[player.UserId] = nil
+	end)
 end
 
 return CombatService

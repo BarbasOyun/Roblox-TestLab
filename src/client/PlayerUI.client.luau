@@ -10,6 +10,17 @@ Knit.OnStart():await() -- Wait for KnitControllersStart
 
 local PlayerController = Knit.GetController("PlayerController")
 
+local attackSpeedButton = workspace.StickSpawner.Surface.SurfaceGui.TextButton
+
+-- IN WORLD UI
+-- 1) "Static" = Roblox UI
+-- 2) Per Player in world UI (Adornee) = use Roact
+
+attackSpeedButton.MouseButton1Click:Connect(function()
+	local PlayerService = Knit.GetService("PlayerService")
+	PlayerService:AddIncreasedAttackSpeed(Players.LocalPlayer.UserId, 100)
+end)
+
 -- ROACT COMPONENTS
 
 -- Score
