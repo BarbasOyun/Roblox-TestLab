@@ -19,7 +19,7 @@ weaponHitParam.FilterType = Enum.RaycastFilterType.Include
 weaponHitParam.FilterDescendantsInstances = { workspace.WeaponHit }
 weaponHitParam.MaxParts = 100
 
--- Player Combat Data
+-- Per Player Combat Data
 -- Only used by CombatService > not worth to put on store
 local expectingAttack = {}
 local attackBuffer = {}
@@ -27,7 +27,7 @@ local lastAttacks = {}
 local comboIndexes = {} -- For Weapon Animation
 local comboReset = {}
 
-local lifeRegenUpdates = {} -- per player
+local lifeRegenUpdate = nil -- life regen loop for every player
 
 -- ATTACK STEPS
 -- 1) Client : Player Input -> Ask Server to Attack

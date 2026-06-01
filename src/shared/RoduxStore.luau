@@ -4,6 +4,7 @@ local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
 -- Rodux store hold a table of players
 -- key = player.UserId
+-- TODO : Move to PlayerService
 local PLAYER_STRUCT = {
 	username = "",
 	score = 0,

@@ -13,7 +13,6 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local PlayerController = Knit.CreateController({ Name = "PlayerController" })
 
 local CombatService = nil
--- local ItemService = nil
 
 PlayerController.store = store
 
@@ -116,9 +115,8 @@ end
 
 function PlayerController:KnitStart()
 	local PlayerService = Knit.GetService("PlayerService")
-
+	local ItemService = Knit.GetService("ItemService")
 	CombatService = Knit.GetService("CombatService")
-	-- ItemService = Knit.GetService("ItemService")
 
 	-- Players Join/Leave Events
 	PlayerService.PlayerAdded:Connect(function(userId, username)
@@ -136,8 +134,8 @@ function PlayerController:KnitStart()
 		store:dispatch(storeActions.SetScore(userId, newScore))
 	end)
 
-	-- Orb Auto Pickup
-	PlayerService.GetOrb:Connect(function()
+	-- Orb Auto Pickup Feedback
+	ItemService.GetOrb:Connect(function()
 		getOrbSound:Play()
 	end)
 

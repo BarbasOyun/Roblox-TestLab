@@ -19,6 +19,7 @@ local PlayerService = Knit.CreateService({
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		ScoreChanged = Knit.CreateSignal(),
+		GiveMeAttackSpeed = Knit.CreateSignal(),
 	},
 })
 
@@ -258,6 +259,11 @@ end
 -- Start Service
 function PlayerService:KnitInit()
 	print("PlayerService Initialized")
+
+	self.Client.GiveMeAttackSpeed:Connect(function(player)
+		-- Validation + Spend some kind of money
+		self:AddIncreasedAttackSpeed(player.UserId, 100)
+	end)
 end
 
 function PlayerService:KnitStart()

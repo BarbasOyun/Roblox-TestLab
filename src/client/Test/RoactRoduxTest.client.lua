@@ -135,7 +135,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 
 Roact.mount(app, PlayerGui)
 
--- LIFETIME : store / GlobalState
+-- LIFETIME
 
 while true do
 	task.wait(1)

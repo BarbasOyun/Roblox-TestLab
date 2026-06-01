@@ -46,11 +46,10 @@ local storeActions = RoduxStore.Actions
 
 -- Usables are first to find their logic
 -- TODO : Split per type -> avoid Item Editing Nightmare
--- use string as keys?
 local itemDefinitions = {
 	-- Usables
-	banana = {
-		id = 0,
+	{
+		id = 1,
 		name = "Banana",
 		itemType = "Usable",
 		-- sprite = nil, -- Found using id
@@ -64,8 +63,8 @@ local itemDefinitions = {
 		lifeHeal = 10, -- On Use
 	},
 
-	smallXpOrb = {
-		id = 1,
+	{
+		id = 2,
 		name = "Small XP Orb",
 		itemType = "Orb",
 		-- xp = 10,
@@ -73,8 +72,8 @@ local itemDefinitions = {
 	},
 
 	-- Reagents
-	stick = {
-		id = 2,
+	{
+		id = 3,
 		name = "Stick",
 		itemType = "Reagent",
 		gridSizeX = 2,
@@ -84,8 +83,8 @@ local itemDefinitions = {
 	},
 
 	-- Weapons
-	woodenClub = {
-		id = 3,
+	{
+		id = 4,
 		name = "Wooden Club",
 		itemType = "Weapon",
 		toolTipText = "Wooden Club",
@@ -98,6 +97,14 @@ local itemDefinitions = {
 
 	-- Gear
 	-- eg ironBodyArmor
+}
+
+-- Item name to ID
+local itemStore = {
+	Banana = 1,
+	SmallXpOrb = 2,
+	Stick = 3,
+	WoodenClub = 4,
 }
 
 local equipmentTypeDefinitions = {
@@ -113,7 +120,7 @@ local equipmentTypeDefinitions = {
 
 local ItemService = Knit.CreateService({
 	Name = "ItemService",
-	ItemStore = itemDefinitions, -- Hold an ItemStore for other services -> ensure item spawn
+	ItemStore = itemStore, -- Hold an ItemStore for other services -> ensure item spawn
 	EquipWeapon = Signal.new(),
 	UnequipWeapon = Signal.new(),
 	Client = {
@@ -127,25 +134,6 @@ local PlayerService = nil
 
 -- ITEM SERVICE DEFINITIONS
 -- can't be in anywhere else
-
-local itemVisualDefinitions = {
-	{ ReplicatedStorage.Shared.Prefabs.Banana, "rbxassetid://102081417185866" }, -- eg id 0 = Banana Prefab + Sprite
-	ReplicatedStorage.Shared.Prefabs.SmallXpOrb,
-	{ ReplicatedStorage.Shared.Prefabs.Stick },
-	{ ReplicatedStorage.Shared.Prefabs.WoodenClub },
-}
-
-local usablesLogicDefinition = {
-	banana = function(player, itemDefinition)
-		-- heal
-	end,
-	smallXpOrb = function(player, itemDefinition, itemModel)
-		-- print("Add Small XP Orb to : " .. player.Name)
-		-- PlayerService:AddXpToPlayer(10)
-		PlayerService:AddScore(player.UserId, itemDefinition.score)
-		itemModel:Destroy()
-	end,
-}
 
 local itemTypes = {
 	usable = "Usable",
@@ -174,6 +162,25 @@ local itemTypeDefinition = {
 	["AutoPickupReagent"] = { "Defined", "Auto" },
 	["Weapon"] = { "Instance", "Manual" },
 	["Gear"] = { "Instance", "Manual" },
+}
+
+local itemVisualDefinitions = {
+	{ ReplicatedStorage.Shared.Prefabs.Banana, "rbxassetid://102081417185866" }, -- eg id 0 = Banana Prefab + Sprite
+	ReplicatedStorage.Shared.Prefabs.SmallXpOrb,
+	{ ReplicatedStorage.Shared.Prefabs.Stick },
+	{ ReplicatedStorage.Shared.Prefabs.WoodenClub },
+}
+
+local usablesLogicDefinition = {
+	["Banana"] = function(player, itemDefinition)
+		-- heal
+	end,
+	["Small XP Orb"] = function(player, itemDefinition, itemModel)
+		-- print("Add Small XP Orb to : " .. player.Name)
+		-- PlayerService:AddXpToPlayer(10)
+		PlayerService:AddScore(player.UserId, itemDefinition.score)
+		itemModel:Destroy()
+	end,
 }
 
 -- DATA STRUCTS
@@ -218,14 +225,14 @@ local INVENTORY_COL_SIZE = 5
 -- Each Instance Item model also hold "Id" attribute = groundItems index
 local groundItems = {}
 
--- ITEM UTILS
+-- UTILS
 
 local function isInstanceType(itemType)
-	return itemTypes[itemType] ~= nil
+	return itemTypeDefinition[itemType][1] == itemTypeTags.Instance
 end
 
 local function isManualPickupType(itemType)
-	return itemTypeDefinition[itemType][1] == ""
+	return itemTypeDefinition[itemType][2] == itemTypeTags.Manual
 end
 
 -- SPAWN ITEMS
@@ -254,14 +261,17 @@ local function lootMovement(item, startPos)
 	end
 end
 
-function ItemService:SpawnItem(itemDefinition, position)
-	local newItem = Gears.deepCopy(ITEM_STRUCT)
-	newItem.definitionId = itemDefinition.id
+local function spawnItemDef(itemDefinition, position)
+	if isInstanceType(itemDefinition.itemType) then
+		local newItem = Gears.deepCopy(ITEM_STRUCT)
+		newItem.definitionId = itemDefinition.id
+	end
 
+	-- Spawn Model
 	local newModel = nil
 
 	if itemDefinition.itemType ~= itemTypes.orb then
-		newModel = itemVisualDefinitions[itemDefinition.id][0]:clone()
+		newModel = itemVisualDefinitions[itemDefinition.id][1]:clone()
 	else
 		newModel = itemVisualDefinitions[itemDefinition.id]:clone() -- Orbs don't use sprites
 	end
@@ -269,26 +279,33 @@ function ItemService:SpawnItem(itemDefinition, position)
 	-- newModel.Name = itemDefinition.name
 	newModel.Parent = workspace
 
-	local partToMove = newItem
+	local partToMove = newModel
 
 	if itemDefinition.itemType == itemTypes.weapon then
-		partToMove = newItem.Handle
+		partToMove = newModel.Handle
 	end
 
 	task.wait(lootMovement(partToMove, position))
 
 	-- Enable Pickup
 	if isManualPickupType(itemDefinition.itemType) then
-		newItem.Parent = workspace.Pickup
+		newModel.Parent = workspace.Pickup
 	else
-		newItem.Parent = workspace.AutoPickup
+		newModel.Parent = workspace.AutoPickup
 	end
 end
 
-function ItemService:SpawnManyItem(itemDefinition, position, itemCount)
+function ItemService:SpawnItem(itemDefinitionId, position)
+	local itemDefinition = itemDefinitions[itemDefinitionId]
+	spawnItemDef(itemDefinition, position)
+end
+
+function ItemService:SpawnManyItem(itemDefinitionId, position, itemCount)
+	local itemDefinition = itemDefinitions[itemDefinitionId]
+
 	for i = 0, itemCount, 1 do
 		task.spawn(function()
-			ItemService:SpawnItem(itemDefinition, position)
+			spawnItemDef(itemDefinition, position)
 		end)
 		task.wait() -- delay
 	end
@@ -315,11 +332,11 @@ end
 
 -- GET ITEMS
 
-function ItemService:GenerateLoot(player, enemy)
+function ItemService:GenerateLoot(player, enemyHumanoid)
 	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
 
 	local orbsRng = math.random(1, 3)
-	self:SpawnManyItem(ItemService.ItemStore.smallXpOrb, enemy:GetPivot().Position, orbsRng)
+	self:SpawnManyItem(itemStore.SmallXpOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
 end
 
 function ItemService:GetOrb(orb, player)
@@ -345,7 +362,7 @@ function ItemService:PickupItem(player, itemModel)
 
 	if itemDefinition.itemType == itemTypes.orb then
 		-- Use Orb
-		usablesLogicDefinition[itemDefinition.id](player, itemDefinition, itemModel) -- Consumables / Orbs need item visual
+		usablesLogicDefinition[itemDefinition.name](player, itemDefinition, itemModel) -- Consumables / Orbs need item visual
 		self.Client.GetOrb:Fire(player) -- SFX Feedback
 	end
 end
@@ -430,13 +447,13 @@ local function onUnequipped(weaponModel)
 	local player = Players:GetPlayerFromCharacter(character)
 	print("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
-	-- local player = weaponModel.Parent.Parent
-	-- if not player or Players:FindFirstChild(player.Name, false) == nil then
-	-- 	return
-	-- end
-	-- print(weapon.Name .. " Unequipped by player: " .. player.Name)
+	local playerData = store.getState(store).players[player.UserId]
 
-	local weaponData = store.getState(store).players[player.UserId].weaponData
+	if playerData == nil then
+		return
+	end
+
+	local weaponData = playerData.weaponData
 
 	-- Remove Sounds
 	for _, sound in pairs(weaponData.sounds) do
@@ -493,6 +510,8 @@ function ItemService:KnitInit()
 end
 
 function ItemService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+
 	SetupWeaponInstances("WoodenClub")
 	-- SetupWeaponInstances("IronMace")
 	-- SetupWeaponInstances("IronAxe")

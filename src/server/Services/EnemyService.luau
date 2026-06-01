@@ -71,6 +71,8 @@ end
 
 function EnemyService:KillEnemy(player, humanoid, overKillDamage)
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
+	-- Rewards
+	ItemService:GenerateLoot(player, humanoid)
 	deathEvent[humanoid]:Fire(player)
 
 	life[humanoid] = nil
@@ -102,9 +104,6 @@ function EnemyService:setupDummy(dummy)
 		-- print(dummy.Name .. " Died")
 		-- dismember(dummy)
 		dummy.Torso.Snap:Destroy()
-
-		-- Rewards
-		ItemService:GenerateLoot(player, dummy)
 
 		-- Respawn
 		task.wait(1)

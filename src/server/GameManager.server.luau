@@ -5,7 +5,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
 local PlayerService = Knit.GetService("PlayerService")
-local CombatService = Knit.GetService("CombatService")
+local ItemService = Knit.GetService("ItemService")
 
 -- In World UI
 local weaponSpawnButton = workspace.WeaponSpawner.Surface.SurfaceGui.TextButton
@@ -37,13 +37,13 @@ end)
 
 -- In World UI
 weaponSpawnButton.MouseButton1Click:Connect(function()
-	CombatService:SpawnWeapon(CombatService.items.woodenClub, weaponSpawnPos)
+	ItemService:SpawnItem(ItemService.ItemStore.WoodenClub, weaponSpawnPos)
 end)
 
 bananaSpawnButton.MouseButton1Click:Connect(function()
-	print("Spawn Banana")
+	ItemService:SpawnItem(ItemService.ItemStore.Banana, bananaSpawnPos)
 end)
 
 stickSpawnButton.MouseButton1Click:Connect(function()
-	print("Spawn Stick")
+	ItemService:SpawnItem(ItemService.ItemStore.Stick, stickSpawnPos)
 end)
