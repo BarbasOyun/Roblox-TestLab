@@ -33,10 +33,10 @@ local ItemService = nil
 -- }
 
 -- PickupRange Parameters
-local PickupParam = OverlapParams.new()
-PickupParam.FilterType = Enum.RaycastFilterType.Include
-PickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
-PickupParam.MaxParts = 50
+local autoPickupParam = OverlapParams.new()
+autoPickupParam.FilterType = Enum.RaycastFilterType.Include
+autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
+autoPickupParam.MaxParts = 50
 
 local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
 local frameCount = 0
@@ -222,7 +222,6 @@ local function autoPickup(player, itemModel)
 		RunService.Heartbeat:Wait()
 	end
 
-	-- ItemService:GetOrb(orb, player)
 	ItemService:PickupItem(player, itemModel)
 end
 
@@ -246,7 +245,7 @@ local function autoPickupRange()
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, pickupRange, 0.1)
 
-		local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, PickupParam)
+		local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, autoPickupParam)
 
 		for _, itemModel in ipairs(autoPickupItems) do
 			autoPickup(player, itemModel)
@@ -261,7 +260,7 @@ function PlayerService:KnitInit()
 	print("PlayerService Initialized")
 
 	self.Client.GiveMeAttackSpeed:Connect(function(player)
-		-- Validation + Spend some kind of money
+		-- Validation + Spend money
 		self:AddIncreasedAttackSpeed(player.UserId, 100)
 	end)
 end

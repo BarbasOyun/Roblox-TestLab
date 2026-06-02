@@ -47,7 +47,7 @@ function EnemyService:CreateEnemy(humanoid, enemyType)
 end
 
 function EnemyService:DamageEnemy(player, humanoid, damage)
-	if not life[humanoid] then
+	if not life[humanoid] or damage <= 0 then
 		return
 	end
 

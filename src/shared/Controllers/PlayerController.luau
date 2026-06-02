@@ -1,3 +1,4 @@
+local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -13,22 +14,27 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local PlayerController = Knit.CreateController({ Name = "PlayerController" })
 
 local CombatService = nil
+local ItemService = nil
 
 PlayerController.store = store
 
 local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
+local animationTracks = {}
 
 -- Sounds
 local playerGui = player:WaitForChild("PlayerGui")
 local soundFolder = playerGui.ClientSounds
 local getOrbSound = soundFolder.GetOrb
 
-local animationTracks = {}
-
+-- Controls
 local isLClickDown = false
+local manualPickupParams = RaycastParams.new()
+manualPickupParams.FilterType = Enum.RaycastFilterType.Include
+manualPickupParams.FilterDescendantsInstances = { workspace.ManualPickup }
 
 -- ANIMATIONS
 
@@ -63,14 +69,7 @@ local function onCharacterAdded(newCharacter)
 	loadAllAnimations()
 end
 
--- CONTROLLER
-
-function PlayerController:KnitInit()
-	print("PlayerController Init")
-
-	loadAllAnimations()
-	player.CharacterAdded:Connect(onCharacterAdded)
-end
+-- CONTROLS
 
 local function setupControls()
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -80,6 +79,21 @@ local function setupControls()
 		end
 
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			-- Raycast from mouse to world -> Find Items
+			local mousePos = UserInputService:GetMouseLocation()
+			local raycastResult = camera:ViewportPointToRay(mousePos.X, mousePos.Y):Raycast(100, manualPickupParams)
+
+			-- Ask Server to Pickup
+			if raycastResult and raycastResult.Instance then
+				local itemModel = raycastResult.Instance:FindFirstAncestorOfClass("Model")
+				if itemModel then
+					print("Ask server to pickup item: " .. itemModel.Name)
+					ItemService.PickupItem:Fire(itemModel)
+					return
+				end
+			end
+
+			-- no item -> Attack
 			isLClickDown = true
 		end
 	end)
@@ -113,9 +127,17 @@ local function setupAttack()
 	end)
 end
 
+-- Start Controller
+function PlayerController:KnitInit()
+	print("PlayerController Init")
+
+	loadAllAnimations()
+	player.CharacterAdded:Connect(onCharacterAdded)
+end
+
 function PlayerController:KnitStart()
 	local PlayerService = Knit.GetService("PlayerService")
-	local ItemService = Knit.GetService("ItemService")
+	ItemService = Knit.GetService("ItemService")
 	CombatService = Knit.GetService("CombatService")
 
 	-- Players Join/Leave Events

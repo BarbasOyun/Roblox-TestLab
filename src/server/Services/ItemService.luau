@@ -96,7 +96,14 @@ local itemDefinitions = {
 	},
 
 	-- Gear
-	-- eg ironBodyArmor
+	{
+		id = 5,
+		name = "Iron Body Armor",
+		itemType = "Gear",
+		toolTipText = "Iron Body Armor",
+		gearType = "Body",
+		armor = 10, -- Defense type = armor, evasion, ...
+	},
 }
 
 -- Item name to ID
@@ -105,6 +112,7 @@ local itemStore = {
 	SmallXpOrb = 2,
 	Stick = 3,
 	WoodenClub = 4,
+	IronBodyArmor = 5,
 }
 
 local equipmentTypeDefinitions = {
@@ -112,9 +120,12 @@ local equipmentTypeDefinitions = {
 		gridSizeX = 2,
 		gridSizeY = 6,
 	},
+	["Body"] = {
+		gridSizeX = 2,
+		gridSizeY = 6,
+	},
 	-- Two-handed Mace
 	-- One-handed Sword
-	-- Body Armor
 	-- ...
 }
 
@@ -127,6 +138,7 @@ local ItemService = Knit.CreateService({
 		GetOrb = Knit.CreateSignal(),
 		EquipWeapon = Knit.CreateSignal(),
 		UnequipWeapon = Knit.CreateSignal(),
+		PickupItem = Knit.CreateSignal(),
 	},
 })
 
@@ -166,14 +178,17 @@ local itemTypeDefinition = {
 
 local itemVisualDefinitions = {
 	{ ReplicatedStorage.Shared.Prefabs.Banana, "rbxassetid://102081417185866" }, -- eg id 0 = Banana Prefab + Sprite
-	ReplicatedStorage.Shared.Prefabs.SmallXpOrb,
+	{ ReplicatedStorage.Shared.Prefabs.SmallXpOrb }, -- Orbs don't use Sprite
 	{ ReplicatedStorage.Shared.Prefabs.Stick },
-	{ ReplicatedStorage.Shared.Prefabs.WoodenClub },
+	{ ReplicatedStorage.Shared.Prefabs.WoodenClub, "rbxassetid://139246229160408" },
+	{ ReplicatedStorage.Shared.Prefabs.IronBodyArmor },
 }
 
 local usablesLogicDefinition = {
 	["Banana"] = function(player, itemDefinition)
-		-- heal
+		-- print(itemDefinition.lifeHeal) -- TODO : Heal
+		PlayerService:AddIncreasedAttackSpeed(player.UserId, 10)
+		print(player.Name .. " Used Banana")
 	end,
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
@@ -185,17 +200,11 @@ local usablesLogicDefinition = {
 
 -- DATA STRUCTS
 
--- For Instance Items
 local ITEM_STRUCT = {
 	-- id = 0,
 	definitionId = 0,
 	-- userId = 0, -- Owner
-	-- name = "",
-	-- type = "",
-	-- gridSizeX = 1,
-	-- gridSizeY = 1,
-	-- toolTipText = "",
-	additionalData = {},
+	additionalData = nil,
 }
 
 local GROUND_ITEM_STRUCT = {
@@ -235,6 +244,53 @@ local function isManualPickupType(itemType)
 	return itemTypeDefinition[itemType][2] == itemTypeTags.Manual
 end
 
+local function isAutoPickupType(itemType)
+	return itemTypeDefinition[itemType][2] == itemTypeTags.Auto
+end
+
+-- CREATE INSTANCE ITEMS
+
+local function createGear(itemDefinition)
+	local gearData = {
+		name = itemDefinition.name,
+		armor = itemDefinition.armor,
+		-- Modifiers
+		-- Rarity = "Common",
+		-- Modifiers = nil,
+	}
+
+	return gearData
+end
+
+-- Weapon Definition -> WeaponStats Data Struct instance
+local function createWeapon(weaponModel, itemDefinition)
+	local handle = weaponModel.Handle
+
+	-- Dynamic Data / Instance
+	local weaponData = {
+		-- weaponType = itemDefinition.weaponType, -- X
+		name = itemDefinition.name,
+		-- Model
+		-- weaponModel = weaponModel, -- X
+		weaponSize = weaponModel:GetScale(),
+		-- handle = handle, -- X
+		attackPoint = handle.AttackPoint,
+		-- Offense
+		damage = itemDefinition.damage, -- Calculate using Weapon Definition + Weapon Modifiers
+		attackSpeed = itemDefinition.attackSpeed,
+		-- Utility
+		aoe = itemDefinition.range,
+		-- Misc
+		attackVFX = handle.AttackPoint.AttackHitVFX,
+		maxCombo = itemDefinition.maxCombo,
+		-- Modifiers
+		-- Rarity = "Common",
+		-- Modifiers = nil,
+	}
+
+	return weaponData
+end
+
 -- SPAWN ITEMS
 
 local function lootMovement(item, startPos)
@@ -261,38 +317,52 @@ local function lootMovement(item, startPos)
 	end
 end
 
+local function setupInstanceItem(itemDefinition, newModel)
+	local newItem = Gears.deepCopy(ITEM_STRUCT)
+	newItem.definitionId = itemDefinition.id
+
+	local itemInstance = nil
+
+	if itemDefinition.itemType == itemTypes.weapon then
+		itemInstance = createWeapon(newModel, itemDefinition)
+	elseif itemDefinition.itemType == itemTypes.gear then
+		itemInstance = createGear(itemDefinition)
+	end
+
+	newItem.additionalData = itemInstance
+
+	local instanceId = #groundItems + 1
+	newModel:SetAttribute("Id", instanceId)
+	groundItems[instanceId] = newItem
+end
+
 local function spawnItemDef(itemDefinition, position)
-	if isInstanceType(itemDefinition.itemType) then
-		local newItem = Gears.deepCopy(ITEM_STRUCT)
-		newItem.definitionId = itemDefinition.id
-	end
-
 	-- Spawn Model
-	local newModel = nil
-
-	if itemDefinition.itemType ~= itemTypes.orb then
-		newModel = itemVisualDefinitions[itemDefinition.id][1]:clone()
-	else
-		newModel = itemVisualDefinitions[itemDefinition.id]:clone() -- Orbs don't use sprites
-	end
-
+	local newModel = itemVisualDefinitions[itemDefinition.id][1]:clone()
 	-- newModel.Name = itemDefinition.name
 	newModel.Parent = workspace
 
 	local partToMove = newModel
 
-	if itemDefinition.itemType == itemTypes.weapon then
-		partToMove = newModel.Handle
+	-- Add instance type to groundItems
+	if isInstanceType(itemDefinition.itemType) then
+		setupInstanceItem(itemDefinition, newModel)
+
+		if itemDefinition.itemType == itemTypes.weapon then
+			partToMove = newModel.Handle
+		end
 	end
 
 	task.wait(lootMovement(partToMove, position))
 
 	-- Enable Pickup
-	if isManualPickupType(itemDefinition.itemType) then
-		newModel.Parent = workspace.Pickup
-	else
-		newModel.Parent = workspace.AutoPickup
-	end
+	-- if isManualPickupType(itemDefinition.itemType) then
+	-- 	newModel.Parent = workspace.ManualPickup
+	-- else
+	-- 	newModel.Parent = workspace.AutoPickup
+	-- end
+
+	newModel.Parent = isManualPickupType(itemDefinition.itemType) and workspace.ManualPickup or workspace.AutoPickup
 end
 
 function ItemService:SpawnItem(itemDefinitionId, position)
@@ -311,25 +381,6 @@ function ItemService:SpawnManyItem(itemDefinitionId, position, itemCount)
 	end
 end
 
-function ItemService:SpawnWeapon(item, position)
-	local newItem = item:clone()
-	newItem.Parent = workspace
-
-	task.wait(lootMovement(newItem.Handle, position))
-
-	newItem.Parent = workspace.Pickup -- Enable Pickup
-end
-
--- Automatic Pickup using PickupRange stat
-function ItemService:SpawnAutomaticItem(item, position)
-	local newItem = item:clone()
-	newItem.Parent = workspace
-
-	task.wait(lootMovement(newItem, position))
-
-	newItem.Parent = workspace.AutoPickup
-end
-
 -- GET ITEMS
 
 function ItemService:GenerateLoot(player, enemyHumanoid)
@@ -339,65 +390,84 @@ function ItemService:GenerateLoot(player, enemyHumanoid)
 	self:SpawnManyItem(itemStore.SmallXpOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
 end
 
-function ItemService:GetOrb(orb, player)
-	if orb.Name == "SmallXpOrb" then
-		-- print("Add Small XP Orb")
-		-- PlayerService:AddXpToPlayer(10)
-		PlayerService:IncrementScore(player.UserId, 1)
-	end
-
-	self.Client.GetOrb:Fire(player)
-	orb:Destroy()
+local function setItemOnMouse(player, item)
+	store:dispatch(storeActions.SetMouseItem(player.UserId, item))
 end
 
--- Item Pickup :
--- Autopickup = Add to inventory
--- Orb = Use
--- Manual Item = Set sprite on mouse
+local function addToInventory(player, item)
+	store:dispatch(storeActions.AddItemToInventory(player.UserId, item))
+end
+
+local function autoAddToInventory(player, item)
+	-- TODO : Check if item fit
+	-- if item fit
+	addToInventory(player, item)
+	return true
+
+	-- else
+	-- Drop item on ground at player pos
+	-- return false
+end
+
+local function autoAddFromGround(player, item, itemModel, instanceId)
+	local success = autoAddToInventory(player, item)
+
+	if success then
+		if instanceId then
+			groundItems[instanceId] = nil
+		end
+
+		itemModel:Destroy()
+	end
+end
+
+-- Per itemType pickup
 function ItemService:PickupItem(player, itemModel)
+	-- TODO : Validations :
+	-- itemModel parent = ManualPickup or AutoPickup -> Only Pickup & Unowned item
+	-- Distance item / player
+
 	local definitionId = itemModel:GetAttribute("DefinitionId")
 	local itemDefinition = itemDefinitions[definitionId]
 
-	-- if isUsable(itemDefinition)
-
+	-- Orb -> Use
 	if itemDefinition.itemType == itemTypes.orb then
-		-- Use Orb
-		usablesLogicDefinition[itemDefinition.name](player, itemDefinition, itemModel) -- Consumables / Orbs need item visual
+		usablesLogicDefinition[itemDefinition.name](player, itemDefinition, itemModel)
 		self.Client.GetOrb:Fire(player) -- SFX Feedback
+		return
 	end
+
+	-- ItemModel to Item Struct
+	local item = nil
+	local instanceId = nil
+
+	if isInstanceType(itemDefinition.itemType) then
+		instanceId = itemModel:GetAttribute("Id")
+		item = groundItems[instanceId]
+	else
+		item = Gears.deepCopy(ITEM_STRUCT)
+		item.definitionId = definitionId
+		item.additionalData = 1 -- stack count
+	end
+
+	-- Autopickup -> AutoAdd to Inventory
+	if isAutoPickupType(itemDefinition.itemType) then
+		autoAddFromGround(player, item, itemModel, instanceId)
+		return
+	end
+
+	-- Manual Pickup
+	-- 1) if too far = trigger movement + Pickup
+	-- 2) Inventory Open = Set Sprite to mouse, Inventory Closed = AutoAdd to Inventory
+
+	-- TODO
+	-- if Inventory Open then
+	setItemOnMouse(player, item)
+	-- else
+	-- autoAddFromGround(player, item, itemModel, instanceId)
 end
 
 -- WEAPON : SETUP & EQUIP
-
-local function createWeapon(weaponModel, weaponDefinition)
-	-- Weapon Definition -> Weapon Data Structure
-	local handle = weaponModel.Handle
-
-	-- TODO : Weapon Inventory Item
-	-- Dynamic Data / Instance
-	local weapon = {
-		weaponType = weaponDefinition.weaponType,
-		-- definitionId = 0,
-		-- Model
-		weapon = weaponModel,
-		weaponSize = weaponModel:GetScale(),
-		handle = handle,
-		attackPoint = handle.AttackPoint,
-		-- Offense
-		damage = weaponDefinition.damage, -- Calculate using Weapon Definition + Weapon Modifiers
-		attackSpeed = weaponDefinition.attackSpeed,
-		-- Utility
-		aoe = weaponDefinition.range,
-		-- Misc
-		attackVFX = handle.AttackPoint.AttackHitVFX,
-		maxCombo = weaponDefinition.maxCombo, -- TODO : Delete -> max combo never change
-		-- Modifiers
-		-- Rarity = "Common",
-		-- Modifiers = nil,
-	} -- Weapon Data Structure
-
-	return weapon
-end
 
 local function setWeapon(player, weapon)
 	-- print(player.Name .. " new Weapon Data")
@@ -434,7 +504,7 @@ local function onEquipped(weaponModel, weapon)
 	weapon.sounds.unsheath:Play()
 
 	ItemService.EquipWeapon:Fire()
-	-- Notice client > custom tool system
+	-- Signal client > custom tool system
 	ItemService.Client.EquipWeapon:Fire(player, true) -- pass weapon?
 end
 
@@ -469,18 +539,25 @@ local function onUnequipped(weaponModel)
 	ItemService.Client.UnequipWeapon:Fire(player)
 end
 
-local function SetupWeaponInstances(weaponType)
+local function SetupWeaponType(weaponType)
 	local function setupWeapon(weaponModel)
 		print("Setup weapon model : " .. weaponModel.Name)
 
-		local definitionId = weaponModel:GetAttribute("DefinitionId")
-		local weaponDefinition = itemDefinitions[definitionId]
+		local weaponInstance = groundItems[weaponModel:GetAttribute("Id")]
+		local weaponData = nil
 
-		local weapon = createWeapon(weaponModel, weaponDefinition)
+		-- Create Data for Pre spawned weapon
+		if not weaponInstance then
+			local definitionId = weaponModel:GetAttribute("DefinitionId")
+			local itemDefinition = itemDefinitions[definitionId]
+			weaponData = createWeapon(weaponModel, itemDefinition)
+		else
+			weaponData = groundItems[weaponModel:GetAttribute("Id")].additionalData
+		end
 
 		-- TODO : Use custom tool system
 		weaponModel.Equipped:Connect(function()
-			onEquipped(weaponModel, weapon)
+			onEquipped(weaponModel, weaponData)
 		end)
 
 		weaponModel.Unequipped:Connect(function()
@@ -501,20 +578,22 @@ end
 
 -- KNIT SERVICE
 
-local function unitTest()
-	-- Test Everything
-end
+-- Unit tests
 
 function ItemService:KnitInit()
 	print("ItemService Init")
+
+	self.Client.PickupItem:Connect(function(player, itemModel)
+		self:PickupItem(player, itemModel)
+	end)
 end
 
 function ItemService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 
-	SetupWeaponInstances("WoodenClub")
-	-- SetupWeaponInstances("IronMace")
-	-- SetupWeaponInstances("IronAxe")
+	SetupWeaponType("WoodenClub")
+	-- SetupWeaponType("IronMace")
+	-- SetupWeaponType("IronAxe")
 
 	-- unitTest()
 end

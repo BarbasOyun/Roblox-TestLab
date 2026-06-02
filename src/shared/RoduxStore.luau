@@ -9,6 +9,7 @@ local PLAYER_STRUCT = {
 	username = "",
 	score = 0,
 	inventory = {},
+	mouseItem = nil, -- Item on mouse cursor
 	stats = {},
 	weaponData = nil,
 	-- gear / equipment
@@ -77,17 +78,25 @@ local Actions = {
 	end,
 
 	-- Inventory
-	AddItem = function(item, position)
+	SetMouseItem = function(userId, item)
 		return {
-			type = "AddItem",
+			type = "SetMouseItem",
+			userId = userId,
+			item = item,
+		}
+	end,
+
+	AddItemToInventory = function(item, position)
+		return {
+			type = "AddItemToInventory",
 			item = item,
 			position = position,
 		}
 	end,
 
-	RemoveItem = function(item)
+	RemoveItemFromInventory = function(item)
 		return {
-			type = "RemoveItem",
+			type = "RemoveItemFromInventory",
 			item = item,
 		}
 	end,
@@ -164,15 +173,23 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	-- Inventory
-	AddItem = function(state, action)
-		local players = {}
-
-		-- TODO
+	SetMouseItem = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].mouseItem = action.item
 
 		return players
 	end,
 
-	RemoveItem = function(state, action)
+	AddItemToInventory = function(state, action)
+		local players = {}
+
+		-- TODO
+		-- if action.position == nil -> auto add to inventory
+
+		return players
+	end,
+
+	RemoveItemFromInventory = function(state, action)
 		local players = {}
 
 		-- TODO
