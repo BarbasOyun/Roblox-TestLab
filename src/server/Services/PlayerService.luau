@@ -69,6 +69,7 @@ function PlayerService:AddScore(userId, value)
 	local newScore = score + value
 	store:dispatch(storeActions.SetScore(userId, newScore))
 
+	self.ScoreChanged:Fire(userId, newScore)
 	-- Replicate to Clients
 	self.Client.ScoreChanged:FireAll(userId, newScore)
 end

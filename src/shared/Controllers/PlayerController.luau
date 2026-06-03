@@ -1,11 +1,12 @@
 local Workspace = game:GetService("Workspace")
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store -- Client side store -> Custom Client store?
+local store = RoduxStore.Store -- Client side store -> Custom Client store? -> no wasted data client side eg other players inventory
 local storeActions = RoduxStore.Actions
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -13,6 +14,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 
 local PlayerController = Knit.CreateController({ Name = "PlayerController" })
 
+local PlayerService = nil
 local CombatService = nil
 local ItemService = nil
 
@@ -31,6 +33,7 @@ local soundFolder = playerGui.ClientSounds
 local getOrbSound = soundFolder.GetOrb
 
 -- Controls
+-- TODO : StateMachine -> States define controls
 local isLClickDown = false
 local manualPickupParams = RaycastParams.new()
 manualPickupParams.FilterType = Enum.RaycastFilterType.Include
@@ -71,6 +74,38 @@ end
 
 -- CONTROLS
 
+local function GetItemRoot(instance)
+	local current = instance
+
+	while current and current ~= workspace do
+		if CollectionService:HasTag(current, "Item") == true then
+			return current
+		end
+
+		current = current.Parent
+	end
+
+	return nil
+end
+
+local function tryPickupItem()
+	-- Raycast from mouse to world -> Find Items
+	local mousePos = UserInputService:GetMouseLocation()
+	local ray = camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+	local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 100, manualPickupParams)
+
+	-- Ask Server to Pickup
+	if raycastResult and raycastResult.Instance then
+		local itemModel = GetItemRoot(raycastResult.Instance)
+
+		print(player.Name .. " Ask server to pickup item: " .. itemModel.Name)
+		ItemService.PickupItem:Fire(itemModel)
+		return true
+	end
+
+	return false
+end
+
 local function setupControls()
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		--print("Input detected: " .. tostring(input.UserInputType) .. "Game processed: " .. tostring(gameProcessed))
@@ -79,18 +114,19 @@ local function setupControls()
 		end
 
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			-- Raycast from mouse to world -> Find Items
-			local mousePos = UserInputService:GetMouseLocation()
-			local raycastResult = camera:ViewportPointToRay(mousePos.X, mousePos.Y):Raycast(100, manualPickupParams)
+			local cursorItem = store:getState().players[player.UserId].cursorItem
 
-			-- Ask Server to Pickup
-			if raycastResult and raycastResult.Instance then
-				local itemModel = raycastResult.Instance:FindFirstAncestorOfClass("Model")
-				if itemModel then
-					print("Ask server to pickup item: " .. itemModel.Name)
-					ItemService.PickupItem:Fire(itemModel)
-					return
-				end
+			if cursorItem then
+				-- Drop Item
+				print(player.Name .. " Ask server to drop item")
+				ItemService.DropCursorItem:Fire()
+				return
+			end
+
+			local success = tryPickupItem()
+
+			if success then
+				return
 			end
 
 			-- no item -> Attack
@@ -113,7 +149,7 @@ local function setupAttack()
 	-- 1) Client : Player Input -> Ask Server to Attack
 	RunService.Heartbeat:Connect(function()
 		if isLClickDown then
-			print("Ask Server to Attack")
+			print(player.Name .. " Ask Server to Attack")
 			CombatService.startAttack:Fire()
 		end
 	end)
@@ -127,19 +163,7 @@ local function setupAttack()
 	end)
 end
 
--- Start Controller
-function PlayerController:KnitInit()
-	print("PlayerController Init")
-
-	loadAllAnimations()
-	player.CharacterAdded:Connect(onCharacterAdded)
-end
-
-function PlayerController:KnitStart()
-	local PlayerService = Knit.GetService("PlayerService")
-	ItemService = Knit.GetService("ItemService")
-	CombatService = Knit.GetService("CombatService")
-
+local function setupPlayerService()
 	-- Players Join/Leave Events
 	PlayerService.PlayerAdded:Connect(function(userId, username)
 		-- Replicate Action Client side
@@ -155,11 +179,32 @@ function PlayerController:KnitStart()
 		-- Update Score instead of Increment
 		store:dispatch(storeActions.SetScore(userId, newScore))
 	end)
+end
 
-	-- Orb Auto Pickup Feedback
+-- Start Controller
+function PlayerController:KnitInit()
+	print("PlayerController Init")
+
+	loadAllAnimations()
+	player.CharacterAdded:Connect(onCharacterAdded)
+end
+
+function PlayerController:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+	ItemService = Knit.GetService("ItemService")
+	CombatService = Knit.GetService("CombatService")
+
+	-- Item Service Events
+	ItemService.PickupItem:Connect(function(item)
+		store:dispatch(storeActions.SetCursorItem(player.UserId, item))
+	end)
+
+	-- Orb Pickup Feedback
 	ItemService.GetOrb:Connect(function()
 		getOrbSound:Play()
 	end)
+
+	setupPlayerService()
 
 	setupControls()
 	setupAttack()

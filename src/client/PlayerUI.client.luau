@@ -104,16 +104,16 @@ ScoreBoard = RoactRodux.connect(function(state, props)
 	}
 end)(ScoreBoard)
 
--- MouseItem
-local MouseItem = Roact.Component:extend("MouseItem")
+-- CursorItem
+local CursorItem = Roact.Component:extend("CursorItem")
 
-function MouseItem:init()
+function CursorItem:init()
 	self:setState({
 		cursorPos = Vector2.new(0, 0),
 	})
 end
 
-function MouseItem:didMount()
+function CursorItem:didMount()
 	self.inputConnection = UserInputService.InputChanged:Connect(function(input, gameProcessed)
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			self:setState({
@@ -123,36 +123,47 @@ function MouseItem:didMount()
 	end)
 end
 
-function MouseItem:willUnmount()
+function CursorItem:willUnmount()
 	if self.inputConnection then
 		self.inputConnection:Disconnect()
 	end
 end
 
-function MouseItem:render()
+function CursorItem:render()
+	local sizeX = 0.1
+	local sizeY = 0.1
+
+	local width = game.Workspace.CurrentCamera.ViewportSize.X
+	local height = game.Workspace.CurrentCamera.ViewportSize.Y
+
+	local offsetX = self.state.cursorPos.X - width * sizeX / 2
+	local offsetY = self.state.cursorPos.Y - height * sizeY / 2
+
 	return Roact.createElement("ImageLabel", {
-		Position = UDim2.new(0, self.state.cursorPos.X, 0, self.state.cursorPos.Y),
-		Size = UDim2.fromOffset(50, 50),
+		Position = UDim2.fromOffset(offsetX, offsetY),
+		Size = UDim2.fromScale(sizeX, sizeY),
 		Image = self.props.imageLink,
 		BackgroundTransparency = 1,
 	})
 end
 
-MouseItem = RoactRodux.connect(function(state, props)
+CursorItem = RoactRodux.connect(function(state, props)
 	-- mapStateToProps
 	local imageLink = ""
 	local playerState = state.players[Players.LocalPlayer.UserId]
 
 	if playerState then
-		imageLink = playerState.mouseItem and playerState.mouseItem.imageLink or ""
+		imageLink = playerState.cursorItem and playerState.cursorItem.imageLink or ""
 	end
+
+	print("Cursor Item Image Link: " .. imageLink)
 
 	return {
 		-- position = UDim2.new(0.45, 0, 0, 0),
 		-- size = UDim2.new(0.2, 0, 0.2, 0),
 		imageLink = imageLink,
 	}
-end)(MouseItem)
+end)(CursorItem)
 
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = PlayerController.store,
@@ -161,7 +172,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 	Roact.createElement("ScreenGui", {}, {
 		-- ScoreText = Roact.createElement(PlayerScoreMain),
 		ScoreBoard = Roact.createElement(ScoreBoard),
-		MouseItem = Roact.createElement(MouseItem),
+		CursorItem = Roact.createElement(CursorItem),
 	}),
 })
 

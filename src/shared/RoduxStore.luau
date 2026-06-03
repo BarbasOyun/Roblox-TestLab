@@ -2,17 +2,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
+-- TODO : Move to PlayerService
 -- Rodux store hold a table of players
 -- key = player.UserId
--- TODO : Move to PlayerService
 local PLAYER_STRUCT = {
 	username = "",
 	score = 0,
 	inventory = {},
-	mouseItem = nil, -- Item on mouse cursor
-	stats = {},
+	cursorItem = nil, -- Item on cursor
+	stats = nil,
 	weaponData = nil,
-	-- gear / equipment
+	-- gearData
 }
 
 -- 1) Define PlayerStats struct
@@ -78,25 +78,27 @@ local Actions = {
 	end,
 
 	-- Inventory
-	SetMouseItem = function(userId, item)
+	SetCursorItem = function(userId, item)
 		return {
-			type = "SetMouseItem",
+			type = "SetCursorItem",
 			userId = userId,
-			item = item,
+			cursorItem = item,
 		}
 	end,
 
-	AddItemToInventory = function(item, position)
+	AddItemToInventory = function(userId, item, position)
 		return {
 			type = "AddItemToInventory",
+			userId = userId,
 			item = item,
 			position = position,
 		}
 	end,
 
-	RemoveItemFromInventory = function(item)
+	RemoveItemFromInventory = function(userId, item)
 		return {
 			type = "RemoveItemFromInventory",
+			userId = userId,
 			item = item,
 		}
 	end,
@@ -173,9 +175,9 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	-- Inventory
-	SetMouseItem = function(state, action)
+	SetCursorItem = function(state, action)
 		local players = table.clone(state) or {}
-		players[action.userId].mouseItem = action.item
+		players[action.userId].cursorItem = action.cursorItem
 
 		return players
 	end,
