@@ -8,9 +8,9 @@ local Rodux = require(ReplicatedStorage.Shared.Rodux)
 local PLAYER_STRUCT = {
 	username = "",
 	score = 0,
+	stats = nil,
 	inventory = {},
 	cursorItem = nil, -- Item on cursor
-	stats = nil,
 	weaponData = nil,
 	-- gearData
 }
@@ -52,6 +52,13 @@ local PLAYER_STATS_STRUCT = {
 -- RODUX ACTIONS
 
 local Actions = {
+	SetGameState = function(gameState)
+		return {
+			type = "SetGameState",
+			gameState = gameState,
+		}
+	end,
+
 	-- Players
 	AddPlayer = function(userId, username)
 		return {
@@ -150,7 +157,6 @@ local Actions = {
 -- RODUX REDUCERS
 
 local playerReducer = Rodux.createReducer({}, {
-	-- Players
 	AddPlayer = function(state, action)
 		local players = table.clone(state) or {} -- Shallow copy the players table
 		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
@@ -234,12 +240,30 @@ local playerReducer = Rodux.createReducer({}, {
 
 -- STORE
 
-local reducer = Rodux.combineReducers({
+local rootReducer = Rodux.combineReducers({
 	players = playerReducer,
 	-- Other game data
 })
 
-local store = Rodux.Store.new(reducer, nil, {
+local function masterReducer(state, action)
+	if action.type == "SetGameState" then
+		local players = table.clone(state) or {}
+		local gamePlayers = action.gameState.players
+
+		for userId, player in pairs(gamePlayers) do
+			players[userId] = player
+		end
+
+		return {
+			players = players,
+			-- Other game data
+		}
+	end
+
+	return rootReducer(state, action)
+end
+
+local store = Rodux.Store.new(masterReducer, nil, {
 	Rodux.loggerMiddleware,
 })
 

@@ -12,7 +12,7 @@ function gears.deepCopy(original)
 
 	for key, value in pairs(original) do
 		if type(value) == "table" then
-			copy[key] = gears.deepCopy(value) -- Recursively clone nested tables
+			copy[key] = gears.deepCopy(value)
 		else
 			copy[key] = value
 		end

@@ -18,11 +18,11 @@ local stickSpawnButton = workspace.StickSpawner.Surface.SurfaceGui.TextButton
 local stickSpawnPos = workspace.StickSpawner.SpawnPoint.Position
 
 Players.PlayerAdded:Connect(function(player)
-	local userId = player.UserId
-
-	PlayerService:AddPlayer(userId, player.Name)
+	PlayerService:AddPlayer(player, player.Name)
 
 	-- Manual Tests
+	-- local userId = player.UserId
+
 	-- PlayerService:IncrementScore(userId, 1) -- Test Score
 
 	-- Stress Test Attack Speed
@@ -37,13 +37,13 @@ end)
 
 -- In World UI
 weaponSpawnButton.MouseButton1Click:Connect(function()
-	ItemService:SpawnItem(ItemService.ItemStore.WoodenClub, weaponSpawnPos)
+	ItemService:SpawnLoot(ItemService.ItemStore.WoodenClub, weaponSpawnPos)
 end)
 
 bananaSpawnButton.MouseButton1Click:Connect(function()
-	ItemService:SpawnItem(ItemService.ItemStore.Banana, bananaSpawnPos)
+	ItemService:SpawnLoot(ItemService.ItemStore.Banana, bananaSpawnPos)
 end)
 
 stickSpawnButton.MouseButton1Click:Connect(function()
-	ItemService:SpawnItem(ItemService.ItemStore.Stick, stickSpawnPos)
+	ItemService:SpawnLoot(ItemService.ItemStore.Stick, stickSpawnPos)
 end)

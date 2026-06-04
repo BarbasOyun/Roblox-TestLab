@@ -63,7 +63,7 @@ end)(PlayerScore)
 -- ScoreBoard
 local function ScoreBoard(props)
 	local players = props.players
-	local playerScores = {}
+	local playerScores = { Layout = Roact.createElement("UIListLayout") }
 
 	for userId, player in pairs(players) do
 		playerScores[userId] = Roact.createElement(PlayerScore, {
@@ -88,7 +88,7 @@ local function ScoreBoard(props)
 			TextColor3 = Color3.fromRGB(255, 255, 255),
 		}),
 		-- Use Fragment?
-		Layout = Roact.createElement("UIListLayout"),
+		-- Layout = Roact.createElement("UIListLayout"),
 		playerScores = Roact.createElement("Frame", {
 			Size = UDim2.new(1, 0, 1, 0),
 		}, playerScores),
@@ -104,48 +104,7 @@ ScoreBoard = RoactRodux.connect(function(state, props)
 	}
 end)(ScoreBoard)
 
--- CursorItem
-local CursorItem = Roact.Component:extend("CursorItem")
-
-function CursorItem:init()
-	self:setState({
-		cursorPos = Vector2.new(0, 0),
-	})
-end
-
-function CursorItem:didMount()
-	self.inputConnection = UserInputService.InputChanged:Connect(function(input, gameProcessed)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			self:setState({
-				cursorPos = input.Position,
-			})
-		end
-	end)
-end
-
-function CursorItem:willUnmount()
-	if self.inputConnection then
-		self.inputConnection:Disconnect()
-	end
-end
-
-function CursorItem:render()
-	local sizeX = 0.1
-	local sizeY = 0.1
-
-	local width = game.Workspace.CurrentCamera.ViewportSize.X
-	local height = game.Workspace.CurrentCamera.ViewportSize.Y
-
-	local offsetX = self.state.cursorPos.X - width * sizeX / 2
-	local offsetY = self.state.cursorPos.Y - height * sizeY / 2
-
-	return Roact.createElement("ImageLabel", {
-		Position = UDim2.fromOffset(offsetX, offsetY),
-		Size = UDim2.fromScale(sizeX, sizeY),
-		Image = self.props.imageLink,
-		BackgroundTransparency = 1,
-	})
-end
+local CursorItem = require(ReplicatedStorage.Shared.Components.CursorItem)
 
 CursorItem = RoactRodux.connect(function(state, props)
 	-- mapStateToProps

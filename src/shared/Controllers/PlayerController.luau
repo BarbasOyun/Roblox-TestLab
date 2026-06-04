@@ -117,7 +117,6 @@ local function setupControls()
 			local cursorItem = store:getState().players[player.UserId].cursorItem
 
 			if cursorItem then
-				-- Drop Item
 				print(player.Name .. " Ask server to drop item")
 				ItemService.DropCursorItem:Fire()
 				return
@@ -164,8 +163,31 @@ local function setupAttack()
 end
 
 local function setupPlayerService()
-	-- Players Join/Leave Events
+	-- Players Join/Leave
+
+	-- Replicate Server GameData
+	PlayerService.ReplicateStore:Connect(function(gameState)
+		-- converte string key to number
+		local players = {}
+
+		-- TODO : use RunService:IsStudio to run only in editor
+		for userId, player in pairs(gameState.players) do
+			players[tonumber(userId)] = player
+		end
+
+		gameState.players = players
+
+		print("Replicating gameState from Server :")
+		print(gameState)
+		store:dispatch(storeActions.SetGameState(gameState))
+	end)
+
 	PlayerService.PlayerAdded:Connect(function(userId, username)
+		-- only add players after joining
+		if userId == player.UserId then
+			return
+		end
+
 		-- Replicate Action Client side
 		store:dispatch(storeActions.AddPlayer(userId, username))
 	end)
@@ -178,6 +200,18 @@ local function setupPlayerService()
 	PlayerService.ScoreChanged:Connect(function(userId, newScore)
 		-- Update Score instead of Increment
 		store:dispatch(storeActions.SetScore(userId, newScore))
+	end)
+end
+
+local function setupItemService()
+	-- Item Service Events
+	ItemService.PickupItem:Connect(function(item)
+		store:dispatch(storeActions.SetCursorItem(player.UserId, item))
+	end)
+
+	-- Orb Pickup Feedback
+	ItemService.GetOrb:Connect(function()
+		getOrbSound:Play()
 	end)
 end
 
@@ -194,17 +228,8 @@ function PlayerController:KnitStart()
 	ItemService = Knit.GetService("ItemService")
 	CombatService = Knit.GetService("CombatService")
 
-	-- Item Service Events
-	ItemService.PickupItem:Connect(function(item)
-		store:dispatch(storeActions.SetCursorItem(player.UserId, item))
-	end)
-
-	-- Orb Pickup Feedback
-	ItemService.GetOrb:Connect(function()
-		getOrbSound:Play()
-	end)
-
 	setupPlayerService()
+	setupItemService()
 
 	setupControls()
 	setupAttack()

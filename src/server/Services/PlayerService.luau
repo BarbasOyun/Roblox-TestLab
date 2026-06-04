@@ -17,6 +17,7 @@ local PlayerService = Knit.CreateService({
 	PlayerRemoved = Signal.new(),
 	Client = {
 		PlayerAdded = Knit.CreateSignal(),
+		ReplicateStore = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		ScoreChanged = Knit.CreateSignal(),
 		GiveMeAttackSpeed = Knit.CreateSignal(),
@@ -42,12 +43,43 @@ local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
 local frameCount = 0
 
 -- Players
-function PlayerService:AddPlayer(userId, username)
+
+-- gameState = data that need to be Replicated when a player join
+-- Sent over network to joining Clients -> need to be serializable
+local function gameState()
+	local state = store:getState()
+	local players = {}
+
+	-- TODO : use player struct
+	for userId, player in pairs(state.players) do
+		players[userId] = {
+			username = player.username,
+			score = player.score,
+			stats = player.stats,
+		}
+	end
+
+	local gameState = {
+		players = players,
+		-- other game data
+	}
+
+	return gameState
+end
+
+function PlayerService:AddPlayer(player, username)
+	local userId = player.UserId
+
 	store:dispatch(storeActions.AddPlayer(userId, username))
 
 	-- Events
 	self.PlayerAdded:Fire(userId)
 	self.Client.PlayerAdded:FireAll(userId, username)
+
+	-- Send the full store to the new player
+	local gameState = gameState()
+	-- /!\ Negative numbers (Roblox userIds when testting) are automatically turned into strings when sent over network
+	self.Client.ReplicateStore:Fire(player, gameState)
 end
 
 function PlayerService:RemovePlayer(userId)
@@ -237,7 +269,13 @@ local function autoPickupRange()
 	local storeState = store:getState()
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		local playerStats = storeState.players[player.userId].stats
+		local playerData = storeState.players[player.userId]
+
+		if not playerData then
+			continue
+		end
+
+		local playerStats = playerData.stats
 		local character = player.Character or player.CharacterAdded:Wait()
 
 		local playerPos = character.HumanoidRootPart.CFrame.Position
