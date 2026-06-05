@@ -67,12 +67,6 @@ local INVENTORY_ITEM_STRUCT = {
 	item = nil,
 }
 
-local INVENTORY_STRUCT = {
-	cellCount = 50,
-	cellPerRow = 10,
-	items = {},
-}
-
 -- ITEM RUNTIME
 -- Item Visuals = 3D Model -> on ground || Sprite -> UI
 -- Items visuals hold "DefinitionId" attribute

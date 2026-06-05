@@ -1,7 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer.PlayerGui
-local UserInputService = game:GetService("UserInputService")
 
 local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
@@ -11,6 +10,7 @@ Knit.OnStart():await() -- Wait for KnitControllersStart
 
 local PlayerController = Knit.GetController("PlayerController")
 
+local player = Players.LocalPlayer
 local attackSpeedButton = workspace.GetAttackSpeed.SurfaceGui.TextButton
 
 -- IN WORLD UI
@@ -63,7 +63,7 @@ end)(PlayerScore)
 -- ScoreBoard
 local function ScoreBoard(props)
 	local players = props.players
-	local playerScores = { Layout = Roact.createElement("UIListLayout") }
+	local playerScores = {}
 
 	for userId, player in pairs(players) do
 		playerScores[userId] = Roact.createElement(PlayerScore, {
@@ -75,23 +75,26 @@ local function ScoreBoard(props)
 		})
 	end
 
+	local playersFragment = Roact.createFragment(playerScores)
+	local scoreList = Roact.createElement("Frame", {
+		Position = UDim2.fromScale(0, 0.2),
+		Size = UDim2.fromScale(1, 0.8),
+		BackgroundTransparency = 1,
+	}, { Layout = Roact.createElement("UIListLayout"), ListItems = playersFragment })
+
 	return Roact.createElement("Frame", {
-		Size = UDim2.new(0.2, 0, 0.5, 0),
-		-- Position = UDim2.new(0.8, 0, 0, 0),
+		-- Position = UDim2.fromScale(0.8, 0),
+		Size = UDim2.fromScale(0.2, 0.7),
 		BackgroundTransparency = 0.5,
 	}, {
 		Title = Roact.createElement("TextLabel", {
 			Text = "Score Board",
-			Size = UDim2.new(1, 0, 0.2, 0),
-			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 0.2),
+			BackgroundTransparency = 0.75,
 			TextScaled = true,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
 		}),
-		-- Use Fragment?
-		-- Layout = Roact.createElement("UIListLayout"),
-		playerScores = Roact.createElement("Frame", {
-			Size = UDim2.new(1, 0, 1, 0),
-		}, playerScores),
+		ScoreList = scoreList,
 	})
 end
 
@@ -104,25 +107,111 @@ ScoreBoard = RoactRodux.connect(function(state, props)
 	}
 end)(ScoreBoard)
 
+-- Item on Cursor
 local CursorItem = require(ReplicatedStorage.Shared.Components.CursorItem)
 
 CursorItem = RoactRodux.connect(function(state, props)
 	-- mapStateToProps
 	local imageLink = ""
-	local playerState = state.players[Players.LocalPlayer.UserId]
+	local playerState = state.players[player.UserId]
 
 	if playerState then
 		imageLink = playerState.cursorItem and playerState.cursorItem.imageLink or ""
 	end
 
-	print("Cursor Item Image Link: " .. imageLink)
+	-- print("Cursor Item Image Link: " .. imageLink)
 
 	return {
-		-- position = UDim2.new(0.45, 0, 0, 0),
-		-- size = UDim2.new(0.2, 0, 0.2, 0),
 		imageLink = imageLink,
 	}
 end)(CursorItem)
+
+-- Inventory
+local function inventoryCells(props)
+	local inventoryCells = {}
+
+	-- Placing cells + offset in a frame :
+	-- Goal = find cellSize for perfect fit
+	-- x = cellSize, y = cellPerRow, z = offset, total row space = 1
+	-- Solve equation -> 1 = x * y + x * z * y
+
+	-- eg :
+	-- y = 10, z = 0.05
+	-- 1 = x * 10 + x * 0.05 * 10
+	-- -> x = 0.95
+
+	local cellCount = props.cellCount
+	local cellPerRow = props.cellPerRow
+
+	local width = game.Workspace.CurrentCamera.ViewportSize.X
+
+	local cellXSize = width * 0.0285 -- Inventory = 30% of screen -> 0.95 * 0.3 = 0.0285
+	local cellOffSet = cellXSize * 0.05 -- 5%
+
+	for i = 0, cellCount - 1, 1 do
+		local x = i % cellPerRow
+		local y = i // cellPerRow
+
+		local xPos = x * cellXSize + cellOffSet * x + cellOffSet
+		local yPos = y * cellXSize + cellOffSet * y + cellOffSet
+
+		inventoryCells[i] = Roact.createElement("Frame", {
+			Position = UDim2.fromOffset(math.ceil(xPos), math.ceil(yPos)),
+			Size = UDim2.fromOffset(cellXSize, cellXSize),
+		})
+	end
+
+	print(inventoryCells)
+
+	return Roact.createElement("Frame", {
+		Position = UDim2.fromScale(0, 0.1),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+	}, inventoryCells)
+end
+
+local Inventory = Roact.Component:extend("Inventory")
+
+function Inventory:render()
+	if not self.props.isVisible then
+		return nil
+	end
+
+	return Roact.createElement("Frame", {
+		Position = UDim2.fromScale(0.7, 0.125),
+		Size = UDim2.fromScale(0.3, 0.75),
+		BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+	}, {
+		Label = Roact.createElement("TextLabel", {
+			Text = "Inventory",
+			Size = UDim2.fromScale(1, 0.1),
+		}),
+		InventoryCells = inventoryCells({
+			cellCount = self.props.cellCount,
+			cellPerRow = self.props.cellPerRow,
+		}),
+	})
+end
+
+Inventory = RoactRodux.connect(function(state, props)
+	local playerState = state.players[player.UserId]
+
+	local isOpen = false
+	local cellCount = 0
+	local cellPerRow = 0
+
+	if playerState then
+		isOpen = playerState.isInventoryOpen
+		cellCount = playerState.inventory.cellCount
+		cellPerRow = playerState.inventory.cellPerRow
+	end
+
+	return {
+		isVisible = isOpen,
+		cellCount = cellCount,
+		cellPerRow = cellPerRow,
+	}
+end)(Inventory)
 
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = PlayerController.store,
@@ -131,6 +220,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 	Roact.createElement("ScreenGui", {}, {
 		-- ScoreText = Roact.createElement(PlayerScoreMain),
 		ScoreBoard = Roact.createElement(ScoreBoard),
+		Inventory = Roact.createElement(Inventory),
 		CursorItem = Roact.createElement(CursorItem),
 	}),
 })

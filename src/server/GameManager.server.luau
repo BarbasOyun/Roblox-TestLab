@@ -26,6 +26,7 @@ Players.PlayerAdded:Connect(function(player)
 	-- PlayerService:IncrementScore(userId, 1) -- Test Score
 
 	-- Stress Test Attack Speed
+	-- Server Error at 2400% Increased attack speed
 	-- PlayerService:AddIncreasedAttackSpeed(userId, 1000)
 end)
 

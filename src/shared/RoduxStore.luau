@@ -2,13 +2,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
--- TODO : Move to PlayerService
 -- Rodux store hold a table of players
 -- key = player.UserId
 local PLAYER_STRUCT = {
 	username = "",
 	score = 0,
 	stats = nil,
+	isInventoryOpen = false,
 	inventory = {},
 	cursorItem = nil, -- Item on cursor
 	weaponData = nil,
@@ -49,13 +49,20 @@ local PLAYER_STATS_STRUCT = {
 	pickupRange = 10,
 }
 
+local INVENTORY_STRUCT = {
+	cellCount = 50,
+	cellPerRow = 10,
+	items = {},
+}
+
 -- RODUX ACTIONS
 
 local Actions = {
-	SetGameState = function(gameState)
+	SetGameState = function(gameState, userId)
 		return {
 			type = "SetGameState",
 			gameState = gameState,
+			userId = userId,
 		}
 	end,
 
@@ -85,6 +92,14 @@ local Actions = {
 	end,
 
 	-- Inventory
+	SetInventoryOpen = function(userId, isOpen)
+		return {
+			type = "SetInventoryOpen",
+			userId = userId,
+			isOpen = isOpen,
+		}
+	end,
+
 	SetCursorItem = function(userId, item)
 		return {
 			type = "SetCursorItem",
@@ -111,7 +126,6 @@ local Actions = {
 	end,
 
 	-- Stats
-
 	SetWeaponData = function(userId, weaponData)
 		return {
 			type = "SetWeaponData",
@@ -162,7 +176,7 @@ local playerReducer = Rodux.createReducer({}, {
 		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
 		players[action.userId].username = action.username
 		players[action.userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
-		-- players[action.userId].inventory = Gears.deepCopy(INVENTORY_STRUCT)
+		players[action.userId].inventory = Gears.deepCopy(INVENTORY_STRUCT)
 		return players
 	end,
 
@@ -181,6 +195,13 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	-- Inventory
+	SetInventoryOpen = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].isInventoryOpen = action.isOpen
+
+		return players
+	end,
+
 	SetCursorItem = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].cursorItem = action.cursorItem
@@ -247,12 +268,14 @@ local rootReducer = Rodux.combineReducers({
 
 local function masterReducer(state, action)
 	if action.type == "SetGameState" then
-		local players = table.clone(state) or {}
+		local players = table.clone(state.players) or {}
 		local gamePlayers = action.gameState.players
 
 		for userId, player in pairs(gamePlayers) do
 			players[userId] = player
 		end
+
+		players[action.userId].inventory = Gears.deepCopy(INVENTORY_STRUCT)
 
 		return {
 			players = players,

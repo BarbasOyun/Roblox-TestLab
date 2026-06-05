@@ -113,8 +113,16 @@ local function setupControls()
 			return
 		end
 
+		-- Open/Close Inventory
+		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.I then
+			local playerState = store:getState().players[player.UserId]
+			local isInventoryOpen = playerState.isInventoryOpen
+			store:dispatch(storeActions.SetInventoryOpen(player.UserId, not isInventoryOpen))
+		end
+
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local cursorItem = store:getState().players[player.UserId].cursorItem
+			local playerState = store:getState().players[player.UserId]
+			local cursorItem = playerState.cursorItem
 
 			if cursorItem then
 				print(player.Name .. " Ask server to drop item")
@@ -165,12 +173,12 @@ end
 local function setupPlayerService()
 	-- Players Join/Leave
 
-	-- Replicate Server GameData
+	-- Replicate Server GameData -> When joining game
 	PlayerService.ReplicateStore:Connect(function(gameState)
 		-- converte string key to number
+		-- TODO : use RunService:IsStudio to run only in editor
 		local players = {}
 
-		-- TODO : use RunService:IsStudio to run only in editor
 		for userId, player in pairs(gameState.players) do
 			players[tonumber(userId)] = player
 		end
@@ -179,7 +187,7 @@ local function setupPlayerService()
 
 		print("Replicating gameState from Server :")
 		print(gameState)
-		store:dispatch(storeActions.SetGameState(gameState))
+		store:dispatch(storeActions.SetGameState(gameState, player.UserId))
 	end)
 
 	PlayerService.PlayerAdded:Connect(function(userId, username)

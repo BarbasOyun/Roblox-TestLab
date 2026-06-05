@@ -42,7 +42,7 @@ autoPickupParam.MaxParts = 50
 local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
 local frameCount = 0
 
--- Players
+-- PLAYERS
 
 -- gameState = data that need to be Replicated when a player join
 -- Sent over network to joining Clients -> need to be serializable
@@ -90,7 +90,8 @@ function PlayerService:RemovePlayer(userId)
 	self.Client.PlayerRemoved:FireAll(userId)
 end
 
--- Score
+-- SCORE
+
 function PlayerService:GetScore(userId)
 	local score = store:getState().players[userId].score
 	return if score ~= nil then score else 0

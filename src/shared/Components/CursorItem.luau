@@ -27,6 +27,8 @@ function CursorItem:willUnmount()
 end
 
 function CursorItem:render()
+	local imageLink = self.props.imageLink
+
 	local sizeX = 0.1
 	local sizeY = 0.1
 
@@ -39,7 +41,8 @@ function CursorItem:render()
 	return Roact.createElement("ImageLabel", {
 		Position = UDim2.fromOffset(offsetX, offsetY),
 		Size = UDim2.fromScale(sizeX, sizeY),
-		Image = self.props.imageLink,
+		ZIndex = 10, -- Always on top
+		Image = imageLink,
 		BackgroundTransparency = 1,
 	})
 end
