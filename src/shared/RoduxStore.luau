@@ -51,7 +51,7 @@ local PLAYER_STATS_STRUCT = {
 
 local INVENTORY_STRUCT = {
 	cellCount = 50,
-	cellPerRow = 10,
+	columns = 10,
 	items = {},
 }
 

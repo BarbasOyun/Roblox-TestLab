@@ -13,12 +13,11 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 --  Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 local PlayerController = Knit.CreateController({ Name = "PlayerController" })
+PlayerController.store = store
 
 local PlayerService = nil
 local CombatService = nil
 local ItemService = nil
-
-PlayerController.store = store
 
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -27,8 +26,11 @@ local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
 local animationTracks = {}
 
--- Sounds
+-- UI
 local playerGui = player:WaitForChild("PlayerGui")
+local inventoryScreenGui = nil
+
+-- Sounds
 local soundFolder = playerGui.ClientSounds
 local getOrbSound = soundFolder.GetOrb
 
@@ -73,6 +75,35 @@ local function onCharacterAdded(newCharacter)
 end
 
 -- CONTROLS
+
+local function isMouseOverInventory(position)
+	if not inventoryScreenGui then
+		inventoryScreenGui = playerGui.RoactTree:FindFirstChild("PlayerInventory")
+	end
+
+	if not inventoryScreenGui then
+		return false
+	end
+
+	local objects = playerGui:GetGuiObjectsAtPosition(position.X, position.Y)
+
+	for _, gui in pairs(objects) do
+		if gui:IsDescendantOf(inventoryScreenGui) or gui == inventoryScreenGui then
+			return true
+		end
+	end
+
+	return false
+end
+
+function PlayerController:DropItemInInventory(cellPos)
+	-- Use half cell detection for better precision
+	-- cell Offset -> f(x) = ceil(x / 2) - 1
+end
+
+function PlayerController:GrabItemInInventory(cellPos)
+	-- Grab
+end
 
 local function GetItemRoot(instance)
 	local current = instance
@@ -121,6 +152,11 @@ local function setupControls()
 		end
 
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			if isMouseOverInventory(input.Position) then
+				-- Input handled in PlayerUI
+				return
+			end
+
 			local playerState = store:getState().players[player.UserId]
 			local cursorItem = playerState.cursorItem
 
