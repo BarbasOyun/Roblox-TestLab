@@ -8,3 +8,5 @@ Goals<br>
 -[Rodux](https://github.com/Roblox/rodux)<br>
 
 2] Test stuff<br>
+-RPG System<br>
+-Inventory System<br>

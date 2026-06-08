@@ -53,8 +53,8 @@ PlayerScoreMain = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.new(0.45, 0, 0, 0), -- X_pos = 0.5 (half screen) - size.x / 2
-		size = UDim2.new(0.2, 0, 0.2, 0),
+		position = UDim2.fromScale(0.45, 0), -- X_pos = 0.5 (half screen) - size.x / 2
+		size = UDim2.fromScale(0.2, 0.2),
 		username = username,
 		score = score,
 	}
@@ -83,7 +83,6 @@ local function ScoreBoard(props)
 	}, { Layout = Roact.createElement("UIListLayout"), ListItems = playersFragment })
 
 	return Roact.createElement("Frame", {
-		-- Position = UDim2.fromScale(0.8, 0),
 		Size = UDim2.fromScale(0.2, 0.7),
 		BackgroundTransparency = 0.5,
 	}, {
@@ -182,6 +181,15 @@ PlayerInventory = RoactRodux.connect(function(state, props)
 	}
 end)(PlayerInventory)
 
+local function Controls(props)
+	return Roact.createElement("TextLabel", {
+		Position = UDim2.fromScale(0, 0.8),
+		Size = UDim2.fromScale(0.2, 0.2),
+		TextScaled = true,
+		Text = "Controls : \n B or I = Inventory \n LClick = Grab item \n RClick = Use Item in Inventory",
+	})
+end
+
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = PlayerController.store,
@@ -192,6 +200,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 		ScoreBoard = Roact.createElement(ScoreBoard),
 		PlayerInventory = Roact.createElement(PlayerInventory),
 		CursorItem = Roact.createElement(CursorItem),
+		Controls = Controls(),
 	}),
 })
 

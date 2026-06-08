@@ -125,9 +125,7 @@ function PlayerController:UseItemInInventory(cellPos)
 		return
 	end
 
-	print("Try using item")
-
-	-- ItemService.GrabInInventory:Fire(cellPos)
+	ItemService.UseInventoryItem:Fire(cellPos)
 end
 
 local function GetItemRoot(instance)

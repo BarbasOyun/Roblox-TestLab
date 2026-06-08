@@ -81,7 +81,7 @@ local INVENTORY_ITEM_STRUCT = {
 	item = nil,
 	spriteLink = "",
 	cellCoord = Vector2.zero,
-	itemGridSize = Vector2.zero,
+	itemGridSize = Vector2.zero, -- TODO : rename gridSize
 }
 
 -- ITEM RUNTIME
@@ -322,6 +322,25 @@ function ItemService:GenerateLoot(player, enemyHumanoid)
 	self:SpawnManyItem(itemStore.SmallXpOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
 end
 
+function ItemService:SpawnInstanceItem(itemDef, spawnPos, item)
+	local newModel = spawnItemDef(itemDef, spawnPos)
+
+	if isInstanceType(itemDef.itemType) then
+		local instanceId = setupInstanceItem(item, newModel)
+
+		-- Reset weaponModel
+		if itemDef.itemType == itemTypes.weapon then
+			local handle = newModel.Handle
+			groundInstanceItems[instanceId].attackPoint = handle.AttackPoint
+			groundInstanceItems[instanceId].attackVFX = handle.AttackPoint.AttackHitVFX
+		end
+	end
+
+	newModel.Parent = workspace.ManualPickup
+
+	return newModel
+end
+
 function ItemService:RemoveGroundItem(itemModel, instanceId)
 	if instanceId then
 		groundInstanceItems[instanceId] = nil
@@ -341,6 +360,7 @@ end
 
 -- cellCoord = top left
 -- > Space = gridSize
+-- TODO : naming
 local function isSpaceAvailable(player, cellCoord, itemGridSize)
 	-- print("isSpaceAvailable : ")
 	-- print("Coord : " .. "X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
@@ -357,11 +377,11 @@ local function isSpaceAvailable(player, cellCoord, itemGridSize)
 		return false
 	end
 
-	local itemSizeX = cellCoord.X + itemGridSize.X
-	local itemSizeY = cellCoord.Y + itemGridSize.Y
+	local offsetCoordX = cellCoord.X + itemGridSize.X
+	local offsetCoordY = cellCoord.Y + itemGridSize.Y
 
 	-- 2) Check itemGridSize outside of inventory grid?
-	if itemSizeX > xLimit or itemSizeY > yLimit then
+	if offsetCoordX > xLimit or offsetCoordY > yLimit then
 		print("item outside of inventory")
 		return false
 	end
@@ -371,14 +391,16 @@ local function isSpaceAvailable(player, cellCoord, itemGridSize)
 
 	for _, inventoryItem in pairs(playerState.inventory.items) do
 		local itemDef = itemDefinitions[inventoryItem.item.definitionId]
-		local coord = inventoryItem.cellCoord
 		local gridSize = getItemGridSize(itemDef)
+		local coord = inventoryItem.cellCoord
 
-		local sizeX = coord.X + gridSize.X
-		local sizeY = coord.X + gridSize.Y
+		local endCoordX = coord.X + gridSize.X
+		local endCoordY = coord.Y + gridSize.Y
 
-		local overlapX = cellCoord.X < coord.X and coord.X < itemSizeX or cellCoord.X < sizeX and sizeX < itemSizeX
-		local overlapY = cellCoord.Y < coord.Y and coord.Y < itemSizeY or cellCoord.Y < sizeY and sizeY < itemSizeY
+		local overlapX = coord.X <= cellCoord.X and cellCoord.X <= endCoordX
+			or coord.X <= offsetCoordX and offsetCoordX <= endCoordX
+		local overlapY = coord.Y <= cellCoord.Y and cellCoord.Y <= endCoordY
+			or coord.Y <= offsetCoordY and offsetCoordY <= endCoordY
 
 		if overlapX and overlapY then
 			print("Another item overlap")
@@ -444,6 +466,15 @@ local function removeFromInventory(player, inventoryItem)
 	ItemService.Client.RemoveFromInventory:Fire(player, removeIndex)
 end
 
+local function dropFromInventory(player, inventoryItem)
+	local item = inventoryItem.item
+	local itemDef = itemDefinitions[item.definitionId]
+	local spawnPos = player.character:GetPivot().Position
+
+	removeFromInventory(player, inventoryItem)
+	ItemService:SpawnInstanceItem(itemDef, spawnPos, item)
+end
+
 -- ITEM PICKUP & DROP
 
 local function setItemOnCursor(player, item)
@@ -465,24 +496,15 @@ local function dropCursorItem(player)
 		return
 	end
 
-	local definitionId = cursorItem.item.definitionId
+	-- Spawn Model
+	local item = cursorItem.item
+	local definitionId = item.definitionId
 	local itemDefinition = itemDefinitions[definitionId]
 	local spawnPos = player.character:GetPivot().Position + player.character:GetPivot().LookVector * 10
-	local newModel = spawnItemDef(itemDefinition, spawnPos)
 
-	if isInstanceType(itemDefinition.itemType) then
-		local instanceId = setupInstanceItem(cursorItem.item, newModel)
+	ItemService:SpawnInstanceItem(itemDefinition, spawnPos, item)
 
-		-- Reset weaponModel
-		if itemDefinition.itemType == itemTypes.weapon then
-			local handle = newModel.Handle
-			groundInstanceItems[instanceId].attackPoint = handle.AttackPoint
-			groundInstanceItems[instanceId].attackVFX = handle.AttackPoint.AttackHitVFX
-		end
-	end
-
-	newModel.Parent = workspace.ManualPickup
-
+	-- Dispatch
 	store:dispatch(storeActions.SetCursorItem(player.UserId, nil))
 	ItemService.Client.PickupItem:Fire(player, nil)
 end
@@ -521,8 +543,26 @@ local function dropCursorItemInInventory(player, cellCoord)
 end
 
 local function getItemAt(player, cellCoord)
+	local playerState = store:getState().players[player.UserId]
+	local items = playerState.inventory.items
+
+	-- TODO : use array -> better for large inventory
+	for _, inventoryItem in pairs(items) do
+		local gridSize = inventoryItem.itemGridSize
+		local coord = inventoryItem.cellCoord
+
+		local endCoordX = coord.X + gridSize.X
+		local endCoordY = coord.X + gridSize.Y
+
+		local overlapX = coord.X <= cellCoord.X and cellCoord.X <= endCoordX
+		local overlapY = coord.Y <= cellCoord.Y and cellCoord.Y <= endCoordY
+
+		if overlapX and overlapY then
+			return inventoryItem
+		end
+	end
+
 	print("No item found at : " .. " X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
-	-- for loop
 	return nil
 end
 
@@ -533,14 +573,19 @@ local function grabItemInInventory(player, cellCoord)
 	if not inventoryItem then
 		return
 	end
+
+	removeFromInventory(player, inventoryItem)
+	setItemOnCursor(player, inventoryItem.item)
 end
 
+-- TODO : Refactor
 local function useItem(player, itemDef, itemVisual)
 	-- TODO : Check Orb
 
 	if isEquipmentType(itemDef.itemType) then
 		print("Equip") -- Spawn on player
-		removeFromInventory(player, itemVisual)
+		dropFromInventory(player, itemVisual)
+		-- removeFromInventory(player, itemVisual)
 		return true
 	end
 
@@ -564,7 +609,7 @@ local function useInventoryItem(player, cellCoord)
 	local item = inventoryItem.item
 	local itemDef = itemDefinitions[item.definitionId]
 
-	useItem(player, itemDef)
+	useItem(player, itemDef, inventoryItem)
 end
 
 -- Per itemType pickup

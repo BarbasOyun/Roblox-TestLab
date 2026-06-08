@@ -118,11 +118,11 @@ local Actions = {
 		}
 	end,
 
-	RemoveItemFromInventory = function(userId, item)
+	RemoveItemFromInventory = function(userId, index)
 		return {
 			type = "RemoveItemFromInventory",
 			userId = userId,
-			item = item,
+			index = index,
 		}
 	end,
 
@@ -218,7 +218,7 @@ local playerReducer = Rodux.createReducer({}, {
 
 	AddItemToInventory = function(state, action)
 		local players = table.clone(state) or {}
-		local inventory = table.clone(players[action.userId].inventory)
+		local inventory = table.clone(players[action.userId].inventory) -- trigger render
 
 		table.insert(inventory.items, action.inventoryItem)
 
@@ -229,7 +229,11 @@ local playerReducer = Rodux.createReducer({}, {
 
 	RemoveItemFromInventory = function(state, action)
 		local players = table.clone(state) or {}
-		players[action.userId].inventory.items[action.index] = nil
+		local inventory = table.clone(players[action.userId].inventory)
+
+		inventory.items[action.index] = nil
+
+		players[action.userId].inventory = inventory
 
 		return players
 	end,
