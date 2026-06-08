@@ -175,20 +175,21 @@ function Inventory:render()
 		Position = self.props.Position,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-		[Roact.Event.InputBegan] = function(rbx, input)
-			-- Grab item
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local cellCoord = self:screenToInventoryCell(rbx, input.Position)
-				print("Left Click PRESSED in Inventory at : " .. "X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
-				PlayerController:GrabItemInInventory(cellCoord)
-			end
-		end,
+		-- [Roact.Event.InputBegan] = function(rbx, input)
+		-- 	-- Grab item
+		-- 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		-- 		local cellCoord = self:screenToInventoryCell(rbx, input.Position)
+		-- 		print("Left Click PRESSED in Inventory at : " .. "X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
+		-- 		PlayerController:GrabItemInInventory(cellCoord)
+		-- 	end
+		-- end,
 		[Roact.Event.InputEnded] = function(rbx, input)
-			-- Drop item
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				local cellCoord = self:screenToInventoryCell(rbx, input.Position)
 				print("Left Click RELEASED in Inventory at : " .. "X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
 				PlayerController:DropItemInInventory(cellCoord)
+				-- Grab Item
+				PlayerController:GrabItemInInventory(cellCoord)
 			end
 
 			-- Use Item

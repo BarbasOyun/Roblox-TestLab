@@ -28,7 +28,6 @@ local animationTracks = {}
 
 -- UI
 local playerGui = player:WaitForChild("PlayerGui")
-local inventoryScreenGui = nil
 
 -- Sounds
 local soundFolder = playerGui.ClientSounds
@@ -77,9 +76,7 @@ end
 -- CONTROLS
 
 local function isMouseOverInventory(position)
-	if not inventoryScreenGui then
-		inventoryScreenGui = playerGui.RoactTree:FindFirstChild("PlayerInventory")
-	end
+	local inventoryScreenGui = playerGui.RoactTree:FindFirstChild("PlayerInventory")
 
 	if not inventoryScreenGui then
 		return false
