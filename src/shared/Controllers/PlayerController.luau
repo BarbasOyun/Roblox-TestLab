@@ -97,12 +97,37 @@ local function isMouseOverInventory(position)
 end
 
 function PlayerController:DropItemInInventory(cellPos)
-	-- Use half cell detection for better precision
-	-- cell Offset -> f(x) = ceil(x / 2) - 1
+	-- Use cell quadrants for better precision
+
+	local playerState = store:getState().players[player.UserId]
+
+	if not playerState or not playerState.cursorItem then
+		return
+	end
+
+	ItemService.DropInInventory:Fire(cellPos)
 end
 
 function PlayerController:GrabItemInInventory(cellPos)
-	-- Grab
+	local playerState = store:getState().players[player.UserId]
+
+	if not playerState or playerState.cursorItem then
+		return
+	end
+
+	ItemService.GrabInInventory:Fire(cellPos)
+end
+
+function PlayerController:UseItemInInventory(cellPos)
+	local playerState = store:getState().players[player.UserId]
+
+	if not playerState or playerState.cursorItem then
+		return
+	end
+
+	print("Try using item")
+
+	-- ItemService.GrabInInventory:Fire(cellPos)
 end
 
 local function GetItemRoot(instance)
@@ -256,6 +281,14 @@ local function setupItemService()
 	-- Orb Pickup Feedback
 	ItemService.GetOrb:Connect(function()
 		getOrbSound:Play()
+	end)
+
+	ItemService.AddToInventory:Connect(function(inventoryItem)
+		store:dispatch(storeActions.AddItemToInventory(player.UserId, inventoryItem))
+	end)
+
+	ItemService.RemoveFromInventory:Connect(function(removeIndex)
+		store:dispatch(storeActions.RemoveItemFromInventory(player.UserId, removeIndex))
 	end)
 end
 

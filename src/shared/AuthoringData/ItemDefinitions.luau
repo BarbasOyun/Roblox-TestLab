@@ -75,7 +75,7 @@ local itemDefinitions = {
 		name = "Wooden Club",
 		itemType = "Weapon",
 		toolTipText = "Wooden Club",
-		weaponType = "Mace",
+		equipmentType = "Mace",
 		damage = 25,
 		attackSpeed = 0.75,
 		range = 6,
@@ -109,7 +109,7 @@ local itemDefinitions = {
 		name = "Iron Body Armor",
 		itemType = "Gear",
 		toolTipText = "Iron Body Armor",
-		gearType = "Body",
+		equipmentType = "Body",
 		armor = 10, -- Defense type = armor, evasion, ...
 	},
 }
@@ -126,11 +126,11 @@ local itemStore = {
 local equipmentTypeDefinitions = {
 	["Mace"] = {
 		gridSizeX = 2,
-		gridSizeY = 6,
+		gridSizeY = 3,
 	},
 	["Body"] = {
 		gridSizeX = 2,
-		gridSizeY = 6,
+		gridSizeY = 3,
 	},
 	-- Two-handed Mace
 	-- One-handed Sword

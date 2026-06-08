@@ -112,155 +112,36 @@ local CursorItem = require(ReplicatedStorage.Shared.Components.CursorItem)
 
 CursorItem = RoactRodux.connect(function(state, props)
 	-- mapStateToProps
-	local imageLink = ""
+	local spriteLink = ""
 	local playerState = state.players[player.UserId]
 
 	if playerState then
-		imageLink = playerState.cursorItem and playerState.cursorItem.imageLink or ""
+		spriteLink = playerState.cursorItem and playerState.cursorItem.spriteLink or ""
 	end
 
-	-- print("Cursor Item Image Link: " .. imageLink)
+	-- print("Cursor Item Image Link: " .. spriteLink)
 
 	return {
-		imageLink = imageLink,
+		spriteLink = spriteLink,
 	}
 end)(CursorItem)
 
 -- Inventory
-local Inventory = Roact.Component:extend("Inventory")
+local Inventory = require(ReplicatedStorage.Shared.Components.Inventory)
 
-function Inventory:init()
-	local rowCount = math.floor(self.props.cellCount / self.props.columns)
+Inventory = RoactRodux.connect(function(state, props)
+	local playerState = state.players[player.UserId]
 
-	-- 2 Ways of holding cellSize
-	-- 1) %
-	-- 2) Pixels
-	-- Pixels > % -> Pixel values needed in screenToInventoryCell function
-
-	-- 1) Calculate % ySize of a cell
-	--[[
-	local width = game.Workspace.CurrentCamera.ViewportSize.X
-	local height = game.Workspace.CurrentCamera.ViewportSize.Y
-	local xSize = self.props.xSize
-	local ySize = self.props.ySize
-
-	local inventoryXPixelSize = width * xSize
-	local inventoryYPixelSize = height * ySize
-	local inventoryRatio = inventoryXPixelSize / inventoryYPixelSize
-
-	local cellXSize = self.props.cellXSize -- % size of inventory
-	local cellYSize = cellXSize * inventoryRatio -- cells are squares
-
-	local cellOffset = cellXSize * 0.05 -- offset = 5% of a cell
-	]]
-
-	self:setState({
-		rowCount = rowCount,
-	})
-end
-
-function Inventory:getCellSize()
-	local width = game.Workspace.CurrentCamera.ViewportSize.X
-	local cellSize = math.round(width * self.props.cellXSize * self.props.xSize) -- Inventory = 30% of screen -> 0.095 * 0.3 = 0.0285 * width = cellSize in Pixels
-	local cellOffset = math.round(cellSize * 0.05) -- 5%
-
-	return cellSize, cellOffset
-end
-
-function Inventory:screenToInventoryCell(inventory, mousePos)
-	local inventoryFramePos = inventory.AbsolutePosition
-
-	-- MousePos inside Inventory
-	local localX = mousePos.X - inventoryFramePos.X
-	local localY = mousePos.Y - inventoryFramePos.Y
-
-	local cellSize, cellOffset = self:getCellSize()
-	local totalCellSize = cellSize + cellOffset
-
-	local inventoryCoordX = math.min(math.floor(localX / totalCellSize), self.props.columns - 1)
-	local inventoryCoordY = math.min(math.floor(localY / totalCellSize), self.state.rowCount - 1)
-	local inventoryCoord = Vector2.new(inventoryCoordX, inventoryCoordY)
-
-	return inventoryCoord
-end
-
-function Inventory:render()
-	local inventoryCells = {}
-
-	-- Placing cells + offsets in a frame :
-	-- Goal = find cellSize for perfect fit
-	-- x = cellSize, y = columns, z = offset, total row space = 1
-	-- 1 = x * y + x * z * y -> Solve equation for x
-
-	-- eg :
-	-- y = 10, z = 0.05
-	-- 1 = x * 10 + x * 0.05 * 10 -> 1 = 10x + .5x
-	-- -> x = 1 / 10.5 = 0.095
-
-	local cellCount = self.props.cellCount
-	local columns = self.props.columns -- columns = cells / row
-	local cellSize, cellOffset = self:getCellSize()
-
-	--[[ Multiplication
-	for i = 0, cellCount - 1, 1 do
-		local x = i % columns
-		local y = i // columns
-
-		local xPos = x * cellSize + cellOffset * x + cellOffset
-		local yPos = y * cellSize + cellOffset * y + cellOffset
-
-		inventoryCells[i] = Roact.createElement("Frame", {
-			Position = UDim2.fromOffset(xPos, yPos),
-			Size = UDim2.fromOffset(cellSize, cellSize),
-		})
-	end
-	]]
-
-	-- Addition
-	local lastXPos = cellOffset - cellSize
-	local yPos = -cellSize
-
-	for i = 0, cellCount - 1, 1 do
-		local x = i % columns
-
-		-- start of a row
-		if x == 0 then
-			lastXPos = cellOffset - cellSize
-			yPos += cellSize + cellOffset
-		end
-
-		local xPos = lastXPos + cellOffset + cellSize
-		lastXPos = xPos
-
-		inventoryCells[i] = Roact.createElement("Frame", {
-			-- using fromScale leads to visual artifacts
-			Position = UDim2.fromOffset(xPos, yPos),
-			Size = UDim2.fromOffset(cellSize, cellSize),
-		})
+	if playerState then
+		return {
+			inventory = playerState.inventory,
+		}
 	end
 
-	return Roact.createElement("Frame", {
-		Position = self.props.Position,
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		[Roact.Event.InputBegan] = function(rbx, input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local cellCoord = self:screenToInventoryCell(rbx, input.Position)
-				print("Left Click Pressed in Inventory at Pos : ")
-				print(cellCoord)
-				PlayerController:GrabItemInInventory(cellCoord)
-			end
-		end,
-		[Roact.Event.InputEnded] = function(rbx, input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local cellCoord = self:screenToInventoryCell(rbx, input.Position)
-				print("Left Click Released in Inventory at Pos : ")
-				print(cellCoord)
-				PlayerController:DropItemInInventory(cellCoord)
-			end
-		end,
-	}, inventoryCells)
-end
+	return {
+		inventory = {},
+	}
+end)(Inventory)
 
 local PlayerInventory = Roact.Component:extend("PlayerInventory")
 
@@ -279,8 +160,6 @@ function PlayerInventory:render()
 			Size = UDim2.fromScale(1, 0.1),
 		}),
 		Inventory = Roact.createElement(Inventory, {
-			cellCount = self.props.cellCount,
-			columns = self.props.columns,
 			xSize = 0.3,
 			ySize = 0.75,
 			Position = UDim2.fromScale(0, 0.1),
@@ -292,20 +171,14 @@ end
 PlayerInventory = RoactRodux.connect(function(state, props)
 	local playerState = state.players[player.UserId]
 
-	local isOpen = false
-	local cellCount = 0
-	local columns = 0
-
 	if playerState then
-		isOpen = playerState.isInventoryOpen
-		cellCount = playerState.inventory.cellCount
-		columns = playerState.inventory.columns
+		return {
+			isVisible = playerState.isInventoryOpen,
+		}
 	end
 
 	return {
-		isVisible = isOpen,
-		cellCount = cellCount,
-		columns = columns,
+		isVisible = false,
 	}
 end)(PlayerInventory)
 

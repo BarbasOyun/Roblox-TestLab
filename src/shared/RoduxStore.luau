@@ -52,7 +52,9 @@ local PLAYER_STATS_STRUCT = {
 local INVENTORY_STRUCT = {
 	cellCount = 50,
 	columns = 10,
+	rows = 0, -- calculated using cellCount and columns
 	items = {},
+	-- cells = {}, -- bool array / int + bitwise operation -> better for isSpaceAvailable
 }
 
 -- RODUX ACTIONS
@@ -108,12 +110,11 @@ local Actions = {
 		}
 	end,
 
-	AddItemToInventory = function(userId, item, position)
+	AddItemToInventory = function(userId, inventoryItem)
 		return {
 			type = "AddItemToInventory",
 			userId = userId,
-			item = item,
-			position = position,
+			inventoryItem = inventoryItem,
 		}
 	end,
 
@@ -176,7 +177,13 @@ local playerReducer = Rodux.createReducer({}, {
 		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
 		players[action.userId].username = action.username
 		players[action.userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
-		players[action.userId].inventory = Gears.deepCopy(INVENTORY_STRUCT)
+
+		-- TODO : ItemService:CreateInventory()
+		local inventory = Gears.deepCopy(INVENTORY_STRUCT)
+		local rowCount = math.floor(inventory.cellCount / inventory.columns)
+		inventory.rows = rowCount
+		players[action.userId].inventory = inventory
+
 		return players
 	end,
 
@@ -210,18 +217,19 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	AddItemToInventory = function(state, action)
-		local players = {}
+		local players = table.clone(state) or {}
+		local inventory = table.clone(players[action.userId].inventory)
 
-		-- TODO
-		-- if action.position == nil -> auto add to inventory
+		table.insert(inventory.items, action.inventoryItem)
+
+		players[action.userId].inventory = inventory
 
 		return players
 	end,
 
 	RemoveItemFromInventory = function(state, action)
-		local players = {}
-
-		-- TODO
+		local players = table.clone(state) or {}
+		players[action.userId].inventory.items[action.index] = nil
 
 		return players
 	end,
@@ -269,13 +277,17 @@ local rootReducer = Rodux.combineReducers({
 local function masterReducer(state, action)
 	if action.type == "SetGameState" then
 		local players = table.clone(state.players) or {}
-		local gamePlayers = action.gameState.players
+		local gamePlayers = action.gameState.players -- playerList from the server
 
 		for userId, player in pairs(gamePlayers) do
 			players[userId] = player
 		end
 
-		players[action.userId].inventory = Gears.deepCopy(INVENTORY_STRUCT)
+		-- TODO : ItemService:CreateInventory()
+		local inventory = Gears.deepCopy(INVENTORY_STRUCT)
+		local rowCount = math.floor(inventory.cellCount / inventory.columns)
+		inventory.rows = rowCount
+		players[action.userId].inventory = inventory
 
 		return {
 			players = players,

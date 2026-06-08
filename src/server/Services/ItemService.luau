@@ -17,11 +17,18 @@ local ItemService = Knit.CreateService({
 	EquipWeapon = Signal.new(),
 	UnequipWeapon = Signal.new(),
 	Client = {
+		-- 3D / Models
 		GetOrb = Knit.CreateSignal(),
 		EquipWeapon = Knit.CreateSignal(),
 		UnequipWeapon = Knit.CreateSignal(),
 		PickupItem = Knit.CreateSignal(),
+		-- 2D / UI
 		DropCursorItem = Knit.CreateSignal(),
+		DropInInventory = Knit.CreateSignal(),
+		GrabInInventory = Knit.CreateSignal(),
+		AddToInventory = Knit.CreateSignal(),
+		RemoveFromInventory = Knit.CreateSignal(),
+		UseInventoryItem = Knit.CreateSignal(),
 	},
 })
 
@@ -39,11 +46,13 @@ local PlayerService = nil
 
 -- ITEM SERVICE DEFINITIONS
 
+-- TODO : useItem(player)
 local usablesLogicDefinition = {
-	["Banana"] = function(player, itemDefinition)
+	["Banana"] = function(player, itemDefinition, itemSprite)
 		-- print(itemDefinition.lifeHeal) -- TODO : Heal
 		PlayerService:AddIncreasedAttackSpeed(player.UserId, 10)
 		print(player.Name .. " Used Banana")
+		-- TODO : Destroy sprite
 	end,
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
@@ -55,6 +64,7 @@ local usablesLogicDefinition = {
 
 -- DATA STRUCTS
 
+-- Linked to models and sprite
 local ITEM_STRUCT = {
 	-- id = 0,
 	definitionId = 0,
@@ -62,9 +72,16 @@ local ITEM_STRUCT = {
 	additionalData = nil, -- InstanceData or StackCount
 }
 
-local INVENTORY_ITEM_STRUCT = {
-	sprite = nil,
+local UI_ITEM_STRUCT = {
 	item = nil,
+	spriteLink = "",
+}
+
+local INVENTORY_ITEM_STRUCT = {
+	item = nil,
+	spriteLink = "",
+	cellCoord = Vector2.zero,
+	itemGridSize = Vector2.zero,
 }
 
 -- ITEM RUNTIME
@@ -90,7 +107,41 @@ local function isAutoPickupType(itemType)
 	return itemTypeDefinition[itemType][2] == itemTypeTags.Auto
 end
 
--- CREATE INSTANCE ITEMS
+local function isEquipmentType(itemType)
+	return itemType == itemTypes.weapon or itemType == itemTypes.gear
+end
+
+local function isUsable(itemType)
+	return itemType == itemTypes.usable or itemType == itemTypes.autoPickupUsable
+end
+
+local function getItemGridSize(itemDefinition)
+	local gridSizeX = 0
+	local gridSizeY = 0
+
+	if isEquipmentType(itemDefinition.itemType) then
+		local equipmentTypeDefinition = equipmentTypeDefinitions[itemDefinition.equipmentType]
+		gridSizeX = equipmentTypeDefinition.gridSizeX
+		gridSizeY = equipmentTypeDefinition.gridSizeY
+	else
+		gridSizeX = itemDefinition.gridSizeX
+		gridSizeY = itemDefinition.gridSizeY
+	end
+
+	-- print("Item gridSize : " .. " X = " .. gridSizeX .. " Y = " .. gridSizeY)
+
+	return Vector2.new(gridSizeX, gridSizeY)
+end
+
+-- CREATE ITEMS
+
+local function createItem(definitionId, additionalData)
+	local item = Gears.deepCopy(ITEM_STRUCT)
+	item.definitionId = definitionId
+	item.additionalData = additionalData
+
+	return item
+end
 
 local function createGearData(itemDefinition)
 	if itemDefinition.itemType ~= itemTypes.gear then
@@ -151,16 +202,13 @@ local function createInstanceItem(itemDefinition, newModel)
 		return
 	end
 
-	local newItem = Gears.deepCopy(ITEM_STRUCT)
-	newItem.definitionId = itemDefinition.id
-	newItem.additionalData = instanceData
+	local newItem = createItem(itemDefinition.id, instanceData)
 
 	return newItem
 end
 
 -- Associate a world ItemModel with ItemStruct in groundItem table
 local function setupInstanceItem(newItem, newModel)
-	-- local instanceId = #groundInstanceItems + 1
 	idCount += 1
 	local instanceId = idCount
 	newModel:SetAttribute("Id", instanceId)
@@ -169,7 +217,7 @@ local function setupInstanceItem(newItem, newModel)
 	return instanceId
 end
 
--- SPAWN ITEMS
+-- SPAWN ITEMS MODELS
 
 -- Spawn model at Position
 local function spawnItemDef(itemDefinition, position)
@@ -285,17 +333,131 @@ end
 
 -- GET ITEMS
 
+local function findAvailableInventorySpace(gridSize)
+	-- TODO -> used for auto add to inventory
+	local cellCoord = Vector2.new(0, 0)
+	return cellCoord
+end
+
+-- cellCoord = top left
+-- > Space = gridSize
+local function isSpaceAvailable(player, cellCoord, itemGridSize)
+	-- print("isSpaceAvailable : ")
+	-- print("Coord : " .. "X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
+	-- print("Space Size : " .. "X = " .. itemGridSize.X .. " Y = " .. itemGridSize.Y)
+
+	local playerState = store:getState().players[player.UserId]
+	local xLimit = playerState.inventory.columns
+	local yLimit = playerState.inventory.rows
+	-- TODO : Check yLimit -> get rowCount
+
+	-- 1) cellCoord outside of inventory grid?
+	if cellCoord.X > xLimit or cellCoord.Y > yLimit then
+		print("cellCoord outside of inventory")
+		return false
+	end
+
+	local itemSizeX = cellCoord.X + itemGridSize.X
+	local itemSizeY = cellCoord.Y + itemGridSize.Y
+
+	-- 2) Check itemGridSize outside of inventory grid?
+	if itemSizeX > xLimit or itemSizeY > yLimit then
+		print("item outside of inventory")
+		return false
+	end
+
+	-- 3) Check for other items
+	-- TODO : Use bool array and check near cells instead -> better for large inventory
+
+	for _, inventoryItem in pairs(playerState.inventory.items) do
+		local itemDef = itemDefinitions[inventoryItem.item.definitionId]
+		local coord = inventoryItem.cellCoord
+		local gridSize = getItemGridSize(itemDef)
+
+		local sizeX = coord.X + gridSize.X
+		local sizeY = coord.X + gridSize.Y
+
+		local overlapX = cellCoord.X < coord.X and coord.X < itemSizeX or cellCoord.X < sizeX and sizeX < itemSizeX
+		local overlapY = cellCoord.Y < coord.Y and coord.Y < itemSizeY or cellCoord.Y < sizeY and sizeY < itemSizeY
+
+		if overlapX and overlapY then
+			print("Another item overlap")
+			return false
+		end
+	end
+
+	return true
+end
+
+local function addToInventory(player, cellCoord, item)
+	-- Validation
+	local itemDef = itemDefinitions[item.definitionId]
+	local gridSize = getItemGridSize(itemDef)
+
+	if not isSpaceAvailable(player, cellCoord, gridSize) then
+		return
+	end
+
+	-- Add item in Inventory
+	local inventoryItem = Gears.deepCopy(INVENTORY_ITEM_STRUCT)
+	inventoryItem.item = item
+	inventoryItem.spriteLink = itemVisualDefinitions[item.definitionId][2]
+	inventoryItem.cellCoord = cellCoord
+	inventoryItem.itemGridSize = gridSize
+
+	store:dispatch(storeActions.AddItemToInventory(player.UserId, inventoryItem))
+	ItemService.Client.AddToInventory:Fire(player, inventoryItem)
+
+	-- Delete Cursor Item
+	store:dispatch(storeActions.SetCursorItem(player.UserId, nil))
+	ItemService.Client.PickupItem:Fire(player, nil)
+end
+
+local function autoAddToInventory(player, item)
+	local cellCoord = findAvailableInventorySpace()
+
+	if cellCoord ~= Vector2.zero then
+		addToInventory(player, cellCoord, item)
+		return true
+	end
+
+	return false
+end
+
+-- When player pickup item with inventory closed
+local function autoAddFromGround(player, item, itemModel, instanceId)
+	local success = autoAddToInventory(player, item)
+
+	if success then
+		ItemService:RemoveGroundItem(itemModel, instanceId)
+	end
+
+	-- TODO : Drop item on ground at player pos
+end
+
+local function removeFromInventory(player, inventoryItem)
+	-- store smart id in item?
+	local playerState = store:getState().players[player.UserId]
+	local removeIndex = table.find(playerState.inventory.items, inventoryItem)
+
+	store:dispatch(storeActions.RemoveItemFromInventory(player.UserId, removeIndex))
+	ItemService.Client.RemoveFromInventory:Fire(player, removeIndex)
+end
+
+-- ITEM PICKUP & DROP
+
 local function setItemOnCursor(player, item)
-	local cursorItem = {
-		item = item,
-		imageLink = itemVisualDefinitions[item.definitionId][2],
-	}
+	-- Create cursorItem
+	local cursorItem = Gears.deepCopy(UI_ITEM_STRUCT)
+	cursorItem.item = item
+	cursorItem.spriteLink = itemVisualDefinitions[item.definitionId][2]
 
 	store:dispatch(storeActions.SetCursorItem(player.UserId, cursorItem))
 	ItemService.Client.PickupItem:Fire(player, cursorItem)
 end
 
 local function dropCursorItem(player)
+	-- Validation
 	local storePlayer = store:getState().players[player.UserId]
 	local cursorItem = storePlayer and storePlayer.cursorItem
 
@@ -325,27 +487,84 @@ local function dropCursorItem(player)
 	ItemService.Client.PickupItem:Fire(player, nil)
 end
 
-local function addToInventory(player, item)
-	store:dispatch(storeActions.AddItemToInventory(player.UserId, item))
-end
+local function dropCursorItemInInventory(player, cellCoord)
+	-- Validation
+	local playerState = store:getState().players[player.UserId]
 
-local function autoAddToInventory(player, item)
-	-- TODO : Check if item fit
-	-- if item fit
-	addToInventory(player, item)
-	return true
-
-	-- else
-	-- Drop item on ground at player pos
-	-- return false
-end
-
-local function autoAddFromGround(player, item, itemModel, instanceId)
-	local success = autoAddToInventory(player, item)
-
-	if success then
-		ItemService:RemoveGroundItem(itemModel, instanceId)
+	if not playerState or not playerState.cursorItem then
+		return
 	end
+
+	local itemOnCursor = playerState.cursorItem.item
+	local itemDef = itemDefinitions[itemOnCursor.definitionId]
+
+	print(
+		player.Name
+			.. " Ask to DROP "
+			.. itemDef.name
+			.. " in inventory at : X = "
+			.. cellCoord.X
+			.. " Y = "
+			.. cellCoord.Y
+	)
+
+	local itemGridSize = getItemGridSize(itemDef)
+
+	-- Place item with offset based on its size
+	-- cell Offset -> f(x) = ceil(x / 2) - 1
+	local cellXOffset = math.ceil(itemGridSize.X / 2) - 1
+	local cellYOffset = math.ceil(itemGridSize.Y / 2) - 1
+
+	local offsetCoord = Vector2.new(cellCoord.x - cellXOffset, cellCoord.y - cellYOffset)
+
+	addToInventory(player, offsetCoord, itemOnCursor)
+end
+
+local function getItemAt(player, cellCoord)
+	print("No item found at : " .. " X = " .. cellCoord.X .. " Y = " .. cellCoord.Y)
+	-- for loop
+	return nil
+end
+
+local function grabItemInInventory(player, cellCoord)
+	-- Validation
+	local inventoryItem = getItemAt(player, cellCoord)
+
+	if not inventoryItem then
+		return
+	end
+end
+
+local function useItem(player, itemDef, itemVisual)
+	-- TODO : Check Orb
+
+	if isEquipmentType(itemDef.itemType) then
+		print("Equip") -- Spawn on player
+		removeFromInventory(player, itemVisual)
+		return true
+	end
+
+	if isUsable(itemDef.itemType) then
+		usablesLogicDefinition[itemDef.name](player, itemDef)
+		removeFromInventory(player, itemVisual)
+		return true
+	end
+
+	return false
+end
+
+local function useInventoryItem(player, cellCoord)
+	-- Validation
+	local inventoryItem = getItemAt(player, cellCoord)
+
+	if not inventoryItem then
+		return
+	end
+
+	local item = inventoryItem.item
+	local itemDef = itemDefinitions[item.definitionId]
+
+	useItem(player, itemDef)
 end
 
 -- Per itemType pickup
@@ -379,9 +598,7 @@ function ItemService:PickupItem(player, itemModel)
 		instanceId = itemModel:GetAttribute("Id")
 		item = groundInstanceItems[instanceId]
 	else
-		item = Gears.deepCopy(ITEM_STRUCT)
-		item.definitionId = definitionId
-		item.additionalData = 1 -- stack count
+		item = createItem(definitionId, 1) -- 1 = stack count
 	end
 
 	-- Autopickup -> AutoAdd to Inventory
@@ -538,6 +755,18 @@ function ItemService:KnitInit()
 
 	self.Client.DropCursorItem:Connect(function(player)
 		dropCursorItem(player)
+	end)
+
+	self.Client.DropInInventory:Connect(function(player, cellCoord)
+		dropCursorItemInInventory(player, cellCoord)
+	end)
+
+	self.Client.GrabInInventory:Connect(function(player, cellCoord)
+		grabItemInInventory(player, cellCoord)
+	end)
+
+	self.Client.UseInventoryItem:Connect(function(player, cellCoord)
+		useInventoryItem(player, cellCoord)
 	end)
 
 	self.ItemStore = itemStore

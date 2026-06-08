@@ -12,7 +12,7 @@ end
 
 function CursorItem:didMount()
 	self.inputConnection = UserInputService.InputChanged:Connect(function(input, gameProcessed)
-		if self.props.imageLink and input.UserInputType == Enum.UserInputType.MouseMovement then
+		if self.props.spriteLink and input.UserInputType == Enum.UserInputType.MouseMovement then
 			self:setState({
 				cursorPos = input.Position,
 			})
@@ -27,7 +27,7 @@ function CursorItem:willUnmount()
 end
 
 function CursorItem:render()
-	local imageLink = self.props.imageLink
+	local spriteLink = self.props.spriteLink
 
 	local sizeX = 0.1
 	local sizeY = 0.1
@@ -42,7 +42,7 @@ function CursorItem:render()
 		Position = UDim2.fromOffset(offsetX, offsetY),
 		Size = UDim2.fromScale(sizeX, sizeY),
 		ZIndex = 10, -- Always on top
-		Image = imageLink,
+		Image = spriteLink,
 		BackgroundTransparency = 1,
 	})
 end
